@@ -5,10 +5,8 @@ import { useThemeStore } from './stores/themeStore'
 import { usePlans } from './hooks/usePlans'
 import Auth from './pages/Auth'
 import Dashboard from './pages/Dashboard'
-import Plans from './pages/Library'
 import IO from './pages/IO'
 import PlanNew from './pages/PlanNew'
-import PlanEdit from './pages/PlanEdit'
 
 function RequireAuth() {
   const isValid = useAuthStore(s => s.isValid)
@@ -31,12 +29,13 @@ export default function App() {
       <Routes>
         <Route path="/auth" element={<Auth />} />
         <Route element={<RequireAuth />}>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/io"        element={<IO />} />
-          <Route path="/scenarios" element={<Plans />} />
-          <Route path="/plans/new" element={<PlanNew />} />
-          <Route path="/plans/:id/edit" element={<PlanEdit />} />
+          <Route path="/"              element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard"     element={<Dashboard />} />
+          <Route path="/io"            element={<IO />} />
+          <Route path="/plans/new"     element={<PlanNew />} />
+          {/* Legacy routes — redirect to dashboard */}
+          <Route path="/scenarios"       element={<Navigate to="/dashboard" replace />} />
+          <Route path="/plans/:id/edit"  element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>
     </BrowserRouter>

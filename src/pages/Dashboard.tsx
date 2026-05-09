@@ -1,35 +1,71 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useColors } from '../stores/themeStore';
+import {
+  DndContext, closestCenter, PointerSensor, TouchSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core';
+import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
+import { useColors, usePlanColors } from '../stores/themeStore';
 import { usePlansStore } from '../stores/plansStore';
 import { useAuthStore } from '../stores/authStore';
-import { useLibraryStore } from '../stores/libraryStore';
-import { simulate } from '../lib/simulate';
-import { money, getReturnRate } from '../lib/finance';
-import { mergeIntoScenario } from '../lib/resolveItems';
+import { usePlans } from '../hooks/usePlans';
+import { PlanCard } from '../components/plan/PlanCard';
+import { PlanEditDrawer } from '../components/plan/PlanEditDrawer';
 import { PlanToggle } from '../components/comparison/PlanToggle';
 import { ComparisonChart } from '../components/comparison/ComparisonChart';
 import { ComparisonTable } from '../components/comparison/ComparisonTable';
 import { ThemeSelector } from '../components/shared/ThemeSelector';
+import type { Plan } from '../lib/types';
+
+function pickRandomColor(usedColors: string[], planColors: { value: string }[]): string {
+  const unused = planColors.filter(c => !usedColors.includes(c.value));
+  const pool   = unused.length > 0 ? unused : planColors;
+  return pool[Math.floor(Math.random() * pool.length)].value;
+}
 
 export default function Dashboard() {
   const COLORS        = useColors();
+  const planColors    = usePlanColors();
   const plans         = usePlansStore(s => s.plans);
   const activePlanIds = usePlansStore(s => s.activePlanIds);
+  const reorderPlans  = usePlansStore(s => s.reorderPlans);
   const logout        = useAuthStore(s => s.logout);
+  const { deletePlan, createPlan } = usePlans();
 
-  const library     = useLibraryStore();
-  const activePlans = plans.filter(p => activePlanIds.has(p.id));
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [clipYears,     setClipYears]     = useState<number | null>(null);
 
-  const maxHorizon = useMemo(
-    () => plans.reduce((mx, p) => Math.max(mx, p.scenario.horizonYears), 0),
-    [plans],
+  const maxHorizon  = useMemo(() => plans.reduce((mx, p) => Math.max(mx, p.scenario.horizonYears), 0), [plans]);
+  const clipOptions = useMemo(() => [1, 3, 5, 10].filter(v => v < maxHorizon), [maxHorizon]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 8 } }),
   );
-  const clipOptions = useMemo(
-    () => [1, 3, 5, 10].filter(v => v < maxHorizon),
-    [maxHorizon],
-  );
-  const [clipYears, setClipYears] = useState<number | null>(null);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const order = plans.map(p => p.id);
+    const from  = order.indexOf(active.id as string);
+    const to    = order.indexOf(over.id   as string);
+    if (from < 0 || to < 0) return;
+    const next = [...order];
+    next.splice(from, 1);
+    next.splice(to, 0, active.id as string);
+    reorderPlans(next);
+  };
+
+  const handleDelete = async (id: string) => {
+    try { await deletePlan(id); } catch (e) { console.error(e); }
+  };
+
+  const handleDuplicate = async (plan: Plan) => {
+    const color = pickRandomColor(plans.map(p => p.color), planColors);
+    try {
+      await createPlan({ title: `${plan.title} copy`, description: plan.description, color, scenario: plan.scenario });
+    } catch (e) { console.error(e); }
+  };
 
   const chipStyle = (active: boolean): React.CSSProperties => ({
     padding: '4px 10px', fontSize: 11, borderRadius: 4,
@@ -48,15 +84,12 @@ export default function Dashboard() {
       <header style={{ padding: '14px 18px', borderBottom: `1px solid ${COLORS.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <h1 className="syne" style={{ fontSize: 18, fontWeight: 800 }}>Projection</h1>
-          {/* Desktop nav tabs — hidden on mobile */}
           <nav className="desktop-only" style={{ gap: 4 }}>
             <span style={{ padding: '5px 10px', fontSize: 12, color: COLORS.accent, borderRadius: 4, border: `1px solid ${COLORS.accent}30` }}>Dashboard</span>
-            <Link to="/io"        style={{ padding: '5px 10px', fontSize: 12, color: COLORS.muted, textDecoration: 'none', borderRadius: 4 }}>I/O</Link>
-            <Link to="/scenarios" style={{ padding: '5px 10px', fontSize: 12, color: COLORS.muted, textDecoration: 'none', borderRadius: 4 }}>Plans</Link>
+            <Link to="/io" style={{ padding: '5px 10px', fontSize: 12, color: COLORS.muted, textDecoration: 'none', borderRadius: 4 }}>I/O</Link>
           </nav>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {/* New Plan button — desktop only */}
           <Link
             to="/plans/new"
             className="desktop-only"
@@ -132,48 +165,39 @@ export default function Dashboard() {
               <ComparisonChart plans={plans} activePlanIds={activePlanIds} clipYears={clipYears} />
             </section>
 
-            {/* Milestone cards */}
-            {activePlans.length > 0 && (
-              <section aria-label="Plan milestones" className="sec">
-                <h2 style={{ fontSize: 11, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase', marginBottom: 12 }}>
-                  Milestones
+            {/* Plans grid — drag to reorder, edit opens drawer */}
+            <section aria-label="Saved scenarios" className="sec">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <h2 style={{ fontSize: 11, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase', margin: 0 }}>
+                  Plans
                 </h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
-                  {activePlans.map(plan => {
-                    const returnRate = getReturnRate(plan.scenario);
-                    const rows       = simulate(mergeIntoScenario(plan.scenario, library), returnRate);
-                    const endM       = plan.scenario.horizonYears * 12;
-                    const midM       = Math.round(endM / 2);
-                    const start      = rows[0]?.savings ?? 0;
-                    const mid        = rows[Math.min(midM, rows.length - 1)]?.savings ?? 0;
-                    const end        = rows[Math.min(endM, rows.length - 1)]?.savings ?? 0;
-                    return (
-                      <div key={plan.id} style={{
-                        padding: '12px 14px',
-                        background: COLORS.surface,
-                        border: `1px solid ${plan.color}40`,
-                        borderTop: `3px solid ${plan.color}`,
-                        borderRadius: 6,
-                      }}>
-                        <div style={{ fontSize: 11, color: plan.color, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
-                          {plan.title || 'Untitled'}
-                        </div>
-                        {[
-                          { label: 'Start',                                           val: start },
-                          { label: `Yr ${Math.round(plan.scenario.horizonYears / 2)}`, val: mid   },
-                          { label: `Yr ${plan.scenario.horizonYears}`,                val: end   },
-                        ].map(({ label, val }) => (
-                          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                            <span style={{ fontSize: 11, color: COLORS.muted }}>{label}</span>
-                            <span style={{ fontSize: 12, color: COLORS.text, fontWeight: 500 }}>{money(val)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
+                <Link
+                  to="/plans/new"
+                  style={{
+                    padding: '6px 13px', fontSize: 11, borderRadius: 4,
+                    border: `1px solid ${COLORS.accent}`,
+                    background: COLORS.accent, color: COLORS.textOnAccent,
+                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontWeight: 600, textDecoration: 'none',
+                  }}
+                >+ New</Link>
+              </div>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={plans.map(p => p.id)} strategy={rectSortingStrategy}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+                    {plans.map(plan => (
+                      <PlanCard
+                        key={plan.id}
+                        plan={plan}
+                        onEdit={setEditingPlanId}
+                        onDelete={handleDelete}
+                        onDuplicate={handleDuplicate}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </section>
 
             {/* Comparison table */}
             <section aria-label="Year-by-year comparison table" className="sec">
@@ -186,7 +210,7 @@ export default function Dashboard() {
         )}
       </main>
 
-      {/* Mobile bottom nav — hidden on desktop */}
+      {/* Mobile bottom nav */}
       <nav className="mobile-nav" aria-label="Mobile navigation" style={{
         position: 'fixed', bottom: 0, left: 0, right: 0,
         background: COLORS.surface, borderTop: `1px solid ${COLORS.border}`,
@@ -194,9 +218,11 @@ export default function Dashboard() {
       }}>
         <Link to="/dashboard" style={{ flex: 1, textAlign: 'center', fontSize: 11, color: COLORS.accent, textDecoration: 'none', letterSpacing: 1, padding: '4px 0' }}>DASH</Link>
         <Link to="/io"        style={{ flex: 1, textAlign: 'center', fontSize: 11, color: COLORS.muted,  textDecoration: 'none', letterSpacing: 1, padding: '4px 0' }}>I/O</Link>
-        <Link to="/scenarios" style={{ flex: 1, textAlign: 'center', fontSize: 11, color: COLORS.muted,  textDecoration: 'none', letterSpacing: 1, padding: '4px 0' }}>PLANS</Link>
         <Link to="/plans/new" style={{ flex: 1, textAlign: 'center', fontSize: 11, color: COLORS.muted,  textDecoration: 'none', letterSpacing: 1, padding: '4px 0' }}>+ NEW</Link>
       </nav>
+
+      {/* Edit drawer */}
+      <PlanEditDrawer planId={editingPlanId} onClose={() => setEditingPlanId(null)} />
     </div>
   );
 }

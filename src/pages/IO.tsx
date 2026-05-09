@@ -85,7 +85,6 @@ export default function IO() {
           <nav className="desktop-only" style={{ gap: 4 }}>
             <Link to="/dashboard" style={{ padding: '5px 10px', fontSize: 12, color: COLORS.muted, textDecoration: 'none', borderRadius: 4 }}>Dashboard</Link>
             <span style={{ padding: '5px 10px', fontSize: 12, color: COLORS.accent, borderRadius: 4, border: `1px solid ${COLORS.accent}30` }}>I/O</span>
-            <Link to="/scenarios" style={{ padding: '5px 10px', fontSize: 12, color: COLORS.muted, textDecoration: 'none', borderRadius: 4 }}>Plans</Link>
           </nav>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -235,13 +234,13 @@ export default function IO() {
               None yet.
             </p>
           )}
-          {library.purchases.map(p => (
+          {library.purchases.map(pur => (
             <PurchaseItem
-              key={p.id}
-              p={p}
-              housingCost={p.housingCost}
-              onChange={patch => library.updatePurchase(p.id, patch)}
-              onRemove={() => library.removePurchase(p.id)}
+              key={pur.id}
+              p={pur}
+              housingCost={library.profile.housingCost}
+              onChange={patch => library.updatePurchase(pur.id, patch)}
+              onRemove={() => library.removePurchase(pur.id)}
             />
           ))}
         </section>
@@ -282,7 +281,6 @@ export default function IO() {
       }}>
         <Link to="/dashboard" style={{ flex: 1, textAlign: 'center', fontSize: 11, color: COLORS.muted,  textDecoration: 'none', letterSpacing: 1, padding: '4px 0' }}>DASH</Link>
         <Link to="/io"        style={{ flex: 1, textAlign: 'center', fontSize: 11, color: COLORS.accent, textDecoration: 'none', letterSpacing: 1, padding: '4px 0' }}>I/O</Link>
-        <Link to="/scenarios" style={{ flex: 1, textAlign: 'center', fontSize: 11, color: COLORS.muted,  textDecoration: 'none', letterSpacing: 1, padding: '4px 0' }}>PLANS</Link>
         <Link to="/plans/new" style={{ flex: 1, textAlign: 'center', fontSize: 11, color: COLORS.muted,  textDecoration: 'none', letterSpacing: 1, padding: '4px 0' }}>+ NEW</Link>
       </nav>
     </div>

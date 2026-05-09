@@ -44,13 +44,14 @@ function SectionHead({ label, onAdd, addLabel = '+ Add', addBtnStyle, labelStyle
 
 interface Props {
   initialScenario?: Scenario;
-  color?:    string;
-  onSave:    (scenario: Scenario) => void;
-  onCancel:  () => void;
-  isSaving?: boolean;
+  color?:         string;
+  onSave:         (scenario: Scenario) => void;
+  onCancel:       () => void;
+  isSaving?:      boolean;
+  footerPosition?: 'fixed' | 'sticky';
 }
 
-export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving }: Props) {
+export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving, footerPosition = 'fixed' }: Props) {
   const COLORS = useColors();
   const themeAccent = useThemeStore(s => s.theme.colors.accent);
   const accent = color ?? themeAccent;
@@ -115,7 +116,6 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving 
 
   const resolvedDebts     = useMemo(() => [...library.debts.filter(d => !excludedDebtIds.includes(d.id)),         ...debts],     [library.debts,     excludedDebtIds,     debts]);
   const resolvedPurchases = useMemo(() => [...library.purchases.filter(p => !excludedPurchaseIds.includes(p.id)), ...purchases], [library.purchases, excludedPurchaseIds, purchases]);
-  const resolvedRaises    = useMemo(() => [...library.raises.filter(r => !excludedRaiseIds.includes(r.id)),       ...raises],    [library.raises,    excludedRaiseIds,    raises]);
 
   const addDebt    = () => setDebts(d => [...d, { id: makeId(), label: '', payment: 200, payoffMonthIdx: 0, payoffYear: START_YEAR + 1 }]);
   const changeDebt = useCallback((id: string, patch: Partial<Debt>) => setDebts(d => d.map(x => x.id === id ? { ...x, ...patch } : x)), []);
@@ -588,10 +588,12 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving 
 
         {/* ── SAVE/CANCEL FOOTER ── */}
         <div style={{
-          position: 'fixed', bottom: 0, left: 0, right: 0,
+          position: footerPosition,
+          bottom: 0,
+          ...(footerPosition === 'fixed' ? { left: 0, right: 0 } : {}),
           background: COLORS.surface, borderTop: `1px solid ${COLORS.border}`,
           padding: '12px 20px', display: 'flex', gap: 10, justifyContent: 'flex-end',
-          zIndex: 100,
+          zIndex: footerPosition === 'fixed' ? 100 : 10,
         }}>
           <button
             onClick={onCancel}
