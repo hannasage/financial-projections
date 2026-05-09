@@ -3,6 +3,7 @@ import { THEMES } from '../../lib/themes';
 import { useColors } from '../../stores/themeStore';
 import { useThemeStore } from '../../stores/themeStore';
 import { usePlansStore } from '../../stores/plansStore';
+import { LOCAL_MODE } from '../../lib/mode';
 import { pb } from '../../lib/pb';
 
 export function ThemeSelector() {
@@ -40,12 +41,12 @@ export function ThemeSelector() {
     setPlans(remappedPlans);
     setTheme(newTheme);
 
-    // Background-save each remapped plan's color to PocketBase
-    remappedPlans.forEach(plan => {
-      pb.collection('plans').update(plan.id, { color: plan.color }).catch(() => {
-        // silently ignore errors — color is cosmetic
+    // Background-save each remapped plan's color to PocketBase (skipped in local mode)
+    if (!LOCAL_MODE) {
+      remappedPlans.forEach(plan => {
+        pb.collection('plans').update(plan.id, { color: plan.color }).catch(() => {});
       });
-    });
+    }
 
     setOpen(false);
   };

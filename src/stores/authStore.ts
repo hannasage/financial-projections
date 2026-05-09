@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { LOCAL_MODE } from '../lib/mode';
 import { pb } from '../lib/pb';
 
 interface AuthState {
@@ -11,17 +12,25 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set) => {
+  if (LOCAL_MODE) {
+    return {
+      isValid:  true,
+      userId:   'local',
+      async login()    {},
+      async register() {},
+      logout()         {},
+      refresh()        {},
+    };
+  }
+
   const syncFromPb = () =>
-    set({
-      isValid: pb.authStore.isValid,
-      userId:  pb.authStore.record?.id ?? null,
-    });
+    set({ isValid: pb.authStore.isValid, userId: pb.authStore.record?.id ?? null });
 
   pb.authStore.onChange(() => syncFromPb());
 
   return {
-    isValid:  pb.authStore.isValid,
-    userId:   pb.authStore.record?.id ?? null,
+    isValid: pb.authStore.isValid,
+    userId:  pb.authStore.record?.id ?? null,
 
     async login(email, password) {
       await pb.collection('users').authWithPassword(email, password);
@@ -34,13 +43,7 @@ export const useAuthStore = create<AuthState>((set) => {
       syncFromPb();
     },
 
-    logout() {
-      pb.authStore.clear();
-      syncFromPb();
-    },
-
-    refresh() {
-      syncFromPb();
-    },
+    logout() { pb.authStore.clear(); syncFromPb(); },
+    refresh() { syncFromPb(); },
   };
 });

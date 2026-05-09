@@ -9,6 +9,7 @@ import { useColors, usePlanColors } from '../stores/themeStore';
 import { usePlansStore } from '../stores/plansStore';
 import { useAuthStore } from '../stores/authStore';
 import { usePlans } from '../hooks/usePlans';
+import { LOCAL_MODE } from '../lib/mode';
 import { PlanCard } from '../components/plan/PlanCard';
 import { PlanEditDrawer } from '../components/plan/PlanEditDrawer';
 import { PlanToggle } from '../components/comparison/PlanToggle';
@@ -102,15 +103,17 @@ export default function Dashboard() {
             }}
           >+ New Plan</Link>
           <ThemeSelector />
-          <button
-            onClick={logout}
-            style={{
-              padding: '7px 14px', fontSize: 12, borderRadius: 4,
-              border: `1px solid ${COLORS.border}`,
-              background: 'transparent', color: COLORS.muted,
-              fontFamily: "'IBM Plex Mono', monospace", cursor: 'pointer',
-            }}
-          >Sign out</button>
+          {!LOCAL_MODE && (
+            <button
+              onClick={logout}
+              style={{
+                padding: '7px 14px', fontSize: 12, borderRadius: 4,
+                border: `1px solid ${COLORS.border}`,
+                background: 'transparent', color: COLORS.muted,
+                fontFamily: "'IBM Plex Mono', monospace", cursor: 'pointer',
+              }}
+            >Sign out</button>
+          )}
         </div>
       </header>
 

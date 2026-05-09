@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useLibraryStore } from '../stores/libraryStore';
 import { stdPayment, money } from '../lib/finance';
 import { START_YEAR } from '../lib/constants';
+import { LOCAL_MODE } from '../lib/mode';
 import { DebtItem } from '../components/plan/DebtItem';
 import { PurchaseItem } from '../components/plan/PurchaseItem';
 import { RaiseItem } from '../components/plan/RaiseItem';
@@ -89,15 +90,17 @@ export default function IO() {
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <ThemeSelector />
-          <button
-            onClick={logout}
-            style={{
-              padding: '7px 14px', fontSize: 12, borderRadius: 4,
-              border: `1px solid ${COLORS.border}`,
-              background: 'transparent', color: COLORS.muted,
-              fontFamily: "'IBM Plex Mono', monospace", cursor: 'pointer',
-            }}
-          >Sign out</button>
+          {!LOCAL_MODE && (
+            <button
+              onClick={logout}
+              style={{
+                padding: '7px 14px', fontSize: 12, borderRadius: 4,
+                border: `1px solid ${COLORS.border}`,
+                background: 'transparent', color: COLORS.muted,
+                fontFamily: "'IBM Plex Mono', monospace", cursor: 'pointer',
+              }}
+            >Sign out</button>
+          )}
         </div>
       </header>
 
