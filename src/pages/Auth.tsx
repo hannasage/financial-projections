@@ -1,23 +1,24 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { COLORS } from '../lib/constants';
+import { useColors } from '../stores/themeStore';
 import { useAuthStore } from '../stores/authStore';
 
-const S = {
-  field: {
-    background: '#0A0E14', color: '#DDE3EE',
-    border: '1px solid #1B2535',
-    borderRadius: 4, padding: '10px 12px',
-    fontFamily: "'IBM Plex Mono', monospace",
-    fontSize: 12, outline: 'none', width: '100%',
-    WebkitAppearance: 'none' as const, appearance: 'none' as const,
-  },
-};
-
 export default function Auth() {
+  const COLORS   = useColors();
   const navigate = useNavigate();
   const login    = useAuthStore(s => s.login);
   const register = useAuthStore(s => s.register);
+
+  const S = {
+    field: {
+      background: COLORS.faint, color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 4, padding: '10px 12px',
+      fontFamily: "'IBM Plex Mono', monospace",
+      fontSize: 12, outline: 'none', width: '100%',
+      WebkitAppearance: 'none' as const, appearance: 'none' as const,
+    },
+  };
 
   const [mode,     setMode]     = useState<'login' | 'register'>('login');
   const [email,    setEmail]    = useState('');
@@ -112,7 +113,7 @@ export default function Auth() {
             style={{
               padding: '11px', fontSize: 12, borderRadius: 4,
               border: `1px solid ${COLORS.accent}`,
-              background: COLORS.accent, color: '#07090C',
+              background: COLORS.accent, color: COLORS.textOnAccent,
               fontFamily: "'IBM Plex Mono', monospace",
               fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer',
               opacity: loading ? 0.7 : 1, marginTop: 4,

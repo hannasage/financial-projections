@@ -6,8 +6,8 @@
 
 html, body {
   height: 100%;
-  background: #07090C;
-  color: #DDE3EE;
+  background: var(--theme-bg, #07090C);
+  color: var(--theme-text, #DDE3EE);
   font-family: 'IBM Plex Mono', monospace;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -19,6 +19,10 @@ html, body {
 
 :root {
   color-scheme: dark;
+}
+
+[data-color-scheme="light"] {
+  color-scheme: light;
 }
 
 input[type=range] {
@@ -44,7 +48,7 @@ button:focus-visible {
   left: -9999px;
   top: 8px;
   padding: 8px 16px;
-  background: #C9F53A;
+  background: var(--plan-accent, #C9F53A);
   color: #000;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 12px;

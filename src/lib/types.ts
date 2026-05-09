@@ -4,7 +4,12 @@ export interface Scenario {
   startAge:     number;
   horizonYears: number;
   returnMode:   'none' | 'hysa' | 'invested';
-  taxPct:       number;
+  hysaRate?:           number;   // percent, e.g. 4.5 — overrides the default when set
+  cascadeDebts?:       boolean;  // freed debt payments redirect to remaining debts before savings
+  excludedDebtIds?:     string[]; // library item IDs excluded from this scenario
+  excludedPurchaseIds?: string[];
+  excludedRaiseIds?:    string[];
+  taxPct:              number;
   baseSalary:   number;
   housingCost:  number;
   debts:        Debt[];
@@ -18,6 +23,8 @@ export interface Debt {
   payment:        number;
   payoffMonthIdx: number;
   payoffYear:     number;
+  balance?:       number;  // current outstanding balance
+  apr?:           number;  // annual percentage rate (%)
 }
 
 export interface Purchase {

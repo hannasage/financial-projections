@@ -1,19 +1,44 @@
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { COLORS, RETURN_RATES } from '../lib/constants';
+import { useColors } from '../stores/themeStore';
 import { usePlansStore } from '../stores/plansStore';
 import { useAuthStore } from '../stores/authStore';
+import { useLibraryStore } from '../stores/libraryStore';
 import { simulate } from '../lib/simulate';
-import { money } from '../lib/finance';
+import { money, getReturnRate } from '../lib/finance';
+import { mergeIntoScenario } from '../lib/resolveItems';
 import { PlanToggle } from '../components/comparison/PlanToggle';
 import { ComparisonChart } from '../components/comparison/ComparisonChart';
 import { ComparisonTable } from '../components/comparison/ComparisonTable';
+import { ThemeSelector } from '../components/shared/ThemeSelector';
 
 export default function Dashboard() {
+  const COLORS        = useColors();
   const plans         = usePlansStore(s => s.plans);
   const activePlanIds = usePlansStore(s => s.activePlanIds);
   const logout        = useAuthStore(s => s.logout);
 
+  const library     = useLibraryStore();
   const activePlans = plans.filter(p => activePlanIds.has(p.id));
+
+  const maxHorizon = useMemo(
+    () => plans.reduce((mx, p) => Math.max(mx, p.scenario.horizonYears), 0),
+    [plans],
+  );
+  const clipOptions = useMemo(
+    () => [1, 3, 5, 10].filter(v => v < maxHorizon),
+    [maxHorizon],
+  );
+  const [clipYears, setClipYears] = useState<number | null>(null);
+
+  const chipStyle = (active: boolean): React.CSSProperties => ({
+    padding: '4px 10px', fontSize: 11, borderRadius: 4,
+    border:     `1px solid ${active ? COLORS.accent : COLORS.border}`,
+    background:  active ? `${COLORS.accent}22` : 'transparent',
+    color:       active ? COLORS.accent : COLORS.muted,
+    fontFamily: "'IBM Plex Mono', monospace",
+    cursor: 'pointer', transition: 'all 0.12s',
+  });
 
   return (
     <div style={{ background: COLORS.bg, minHeight: '100vh', color: COLORS.text, fontFamily: "'IBM Plex Mono', monospace", paddingBottom: 0 }}>
@@ -26,7 +51,8 @@ export default function Dashboard() {
           {/* Desktop nav tabs — hidden on mobile */}
           <nav className="desktop-only" style={{ gap: 4 }}>
             <span style={{ padding: '5px 10px', fontSize: 12, color: COLORS.accent, borderRadius: 4, border: `1px solid ${COLORS.accent}30` }}>Dashboard</span>
-            <Link to="/scenarios" style={{ padding: '5px 10px', fontSize: 12, color: COLORS.muted, textDecoration: 'none', borderRadius: 4 }}>Scenarios</Link>
+            <Link to="/io"        style={{ padding: '5px 10px', fontSize: 12, color: COLORS.muted, textDecoration: 'none', borderRadius: 4 }}>I/O</Link>
+            <Link to="/scenarios" style={{ padding: '5px 10px', fontSize: 12, color: COLORS.muted, textDecoration: 'none', borderRadius: 4 }}>Plans</Link>
           </nav>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -37,11 +63,12 @@ export default function Dashboard() {
             style={{
               padding: '7px 14px', fontSize: 12, borderRadius: 4,
               border: `1px solid ${COLORS.accent}`,
-              background: COLORS.accent, color: '#07090C',
+              background: COLORS.accent, color: COLORS.textOnAccent,
               fontFamily: "'IBM Plex Mono', monospace",
               fontWeight: 600, textDecoration: 'none',
             }}
           >+ New Plan</Link>
+          <ThemeSelector />
           <button
             onClick={logout}
             style={{
@@ -69,7 +96,7 @@ export default function Dashboard() {
               style={{
                 display: 'inline-block', padding: '10px 24px', fontSize: 13, borderRadius: 4,
                 border: `1px solid ${COLORS.accent}`,
-                background: COLORS.accent, color: '#07090C',
+                background: COLORS.accent, color: COLORS.textOnAccent,
                 fontFamily: "'IBM Plex Mono', monospace",
                 fontWeight: 600, textDecoration: 'none',
               }}
@@ -85,10 +112,24 @@ export default function Dashboard() {
 
             {/* Comparison chart */}
             <section aria-label="Savings comparison chart" className="sec">
-              <h2 style={{ fontSize: 11, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase', marginBottom: 12 }}>
-                Trajectory Comparison
-              </h2>
-              <ComparisonChart plans={plans} activePlanIds={activePlanIds} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                <h2 style={{ fontSize: 11, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase', margin: 0 }}>
+                  Trajectory Comparison
+                </h2>
+                {clipOptions.length > 0 && (
+                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                    {clipOptions.map(yr => (
+                      <button key={yr} onClick={() => setClipYears(clipYears === yr ? null : yr)} style={chipStyle(clipYears === yr)} aria-pressed={clipYears === yr}>
+                        {yr}yr
+                      </button>
+                    ))}
+                    <button onClick={() => setClipYears(null)} style={chipStyle(clipYears === null)} aria-pressed={clipYears === null}>
+                      All
+                    </button>
+                  </div>
+                )}
+              </div>
+              <ComparisonChart plans={plans} activePlanIds={activePlanIds} clipYears={clipYears} />
             </section>
 
             {/* Milestone cards */}
@@ -99,8 +140,8 @@ export default function Dashboard() {
                 </h2>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
                   {activePlans.map(plan => {
-                    const returnRate = RETURN_RATES[plan.scenario.returnMode] ?? 0;
-                    const rows       = simulate(plan.scenario, returnRate);
+                    const returnRate = getReturnRate(plan.scenario);
+                    const rows       = simulate(mergeIntoScenario(plan.scenario, library), returnRate);
                     const endM       = plan.scenario.horizonYears * 12;
                     const midM       = Math.round(endM / 2);
                     const start      = rows[0]?.savings ?? 0;
@@ -139,7 +180,7 @@ export default function Dashboard() {
               <h2 style={{ fontSize: 11, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase', marginBottom: 12 }}>
                 Year-by-Year
               </h2>
-              <ComparisonTable plans={plans} activePlanIds={activePlanIds} />
+              <ComparisonTable plans={plans} activePlanIds={activePlanIds} clipYears={clipYears} />
             </section>
           </>
         )}
@@ -151,9 +192,10 @@ export default function Dashboard() {
         background: COLORS.surface, borderTop: `1px solid ${COLORS.border}`,
         padding: '10px 0 20px',
       }}>
-        <Link to="/dashboard"  style={{ flex: 1, textAlign: 'center', fontSize: 11, color: COLORS.accent, textDecoration: 'none', letterSpacing: 1, padding: '4px 0' }}>DASHBOARD</Link>
-        <Link to="/scenarios"  style={{ flex: 1, textAlign: 'center', fontSize: 11, color: COLORS.muted,  textDecoration: 'none', letterSpacing: 1, padding: '4px 0' }}>SCENARIOS</Link>
-        <Link to="/plans/new"  style={{ flex: 1, textAlign: 'center', fontSize: 11, color: COLORS.muted,  textDecoration: 'none', letterSpacing: 1, padding: '4px 0' }}>+ NEW</Link>
+        <Link to="/dashboard" style={{ flex: 1, textAlign: 'center', fontSize: 11, color: COLORS.accent, textDecoration: 'none', letterSpacing: 1, padding: '4px 0' }}>DASH</Link>
+        <Link to="/io"        style={{ flex: 1, textAlign: 'center', fontSize: 11, color: COLORS.muted,  textDecoration: 'none', letterSpacing: 1, padding: '4px 0' }}>I/O</Link>
+        <Link to="/scenarios" style={{ flex: 1, textAlign: 'center', fontSize: 11, color: COLORS.muted,  textDecoration: 'none', letterSpacing: 1, padding: '4px 0' }}>PLANS</Link>
+        <Link to="/plans/new" style={{ flex: 1, textAlign: 'center', fontSize: 11, color: COLORS.muted,  textDecoration: 'none', letterSpacing: 1, padding: '4px 0' }}>+ NEW</Link>
       </nav>
     </div>
   );

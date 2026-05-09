@@ -1,5 +1,24 @@
-import { START_YEAR, MONTHS } from './constants';
-import type { Purchase } from './types';
+import { START_YEAR, MONTHS, RETURN_RATES } from './constants';
+import type { Purchase, Scenario } from './types';
+
+export function remainingBalance(
+  principal:     number,
+  annualRate:    number,
+  monthlyPmt:    number,
+  monthsElapsed: number,
+): number {
+  if (!principal || principal <= 0 || monthsElapsed <= 0) return Math.max(0, principal);
+  if (annualRate === 0) return Math.max(0, principal - monthlyPmt * monthsElapsed);
+  const r = annualRate / 100 / 12;
+  const b = principal * Math.pow(1 + r, monthsElapsed)
+          - monthlyPmt * (Math.pow(1 + r, monthsElapsed) - 1) / r;
+  return Math.max(0, b);
+}
+
+export function getReturnRate(scenario: Pick<Scenario, 'returnMode' | 'hysaRate'>): number {
+  if (scenario.returnMode === 'hysa') return (scenario.hysaRate ?? 4.5) / 100;
+  return RETURN_RATES[scenario.returnMode] ?? 0;
+}
 
 export const absMo = (year: number, monthIdx: number): number =>
   (year - START_YEAR) * 12 + monthIdx;
@@ -58,6 +77,8 @@ export function payoffLabel(purchase: Purchase): string {
   if (mo >= 9999) return 'never';
   if (mo === 0)   return '—';
   const abs = absMo(purchase.year, purchase.monthIdx) + mo;
-  const yr  = START_YEAR + Math.floor(abs / 12);
-  return `${MONTHS[abs % 12]} ${yr}`;
+  if (abs <= 0) return 'already paid off';
+  const yr = START_YEAR + Math.floor(abs / 12);
+  const mi = ((abs % 12) + 12) % 12;
+  return `${MONTHS[mi]} ${yr}`;
 }

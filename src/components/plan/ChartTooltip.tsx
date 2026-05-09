@@ -1,5 +1,6 @@
-import { COLORS } from '../../lib/constants';
+import { useColors } from '../../stores/themeStore';
 import { money } from '../../lib/finance';
+import { MONTHS } from '../../lib/constants';
 import type { SimRow } from '../../lib/types';
 
 interface Props {
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export function ChartTooltip({ active, payload }: Props) {
+  const COLORS = useColors();
   if (!active || !payload?.length) return null;
   const d = payload[0]?.payload;
   if (!d) return null;
@@ -18,7 +20,7 @@ export function ChartTooltip({ active, payload }: Props) {
       fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, minWidth: 175,
     }}>
       <div style={{ color: COLORS.accent, fontWeight: 600, marginBottom: 5 }}>
-        Age {d.ageFloor} · {d.yr}
+        Age {d.ageFloor} · {MONTHS[d.m % 12]} {d.yr}
       </div>
       <div style={{ color: COLORS.text, fontSize: 13, marginBottom: 5 }}>
         {money(d.savings)}

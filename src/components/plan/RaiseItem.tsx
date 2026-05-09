@@ -1,22 +1,7 @@
-import { COLORS, MONTHS, YEARS } from '../../lib/constants';
+import { useColors } from '../../stores/themeStore';
+import { MONTHS, YEARS } from '../../lib/constants';
 import { money, netMonthly } from '../../lib/finance';
 import type { Raise } from '../../lib/types';
-
-const S = {
-  field: {
-    background: COLORS.faint, color: COLORS.text,
-    border: `1px solid ${COLORS.border}`,
-    borderRadius: 4, padding: '7px 9px',
-    fontFamily: "'IBM Plex Mono', monospace",
-    fontSize: 11, outline: 'none',
-    WebkitAppearance: 'none' as const, appearance: 'none' as const,
-  },
-};
-
-const iconBtn: React.CSSProperties = {
-  background: 'none', border: 'none', color: COLORS.muted,
-  fontSize: 18, cursor: 'pointer', padding: '0 4px', lineHeight: 1,
-};
 
 interface Props {
   r:          Raise;
@@ -27,7 +12,26 @@ interface Props {
 }
 
 export function RaiseItem({ r, taxPct, baseSalary, onChange, onRemove }: Props) {
+  const COLORS = useColors();
+
+  const S = {
+    field: {
+      background: COLORS.faint, color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 4, padding: '7px 9px',
+      fontFamily: "'IBM Plex Mono', monospace",
+      fontSize: 11, outline: 'none',
+      WebkitAppearance: 'none' as const, appearance: 'none' as const,
+    },
+  };
+
+  const iconBtn: React.CSSProperties = {
+    background: 'none', border: 'none', color: COLORS.muted,
+    fontSize: 18, cursor: 'pointer', padding: '0 4px', lineHeight: 1,
+  };
+
   const boost = netMonthly(r.salary, taxPct) - netMonthly(baseSalary, taxPct);
+
   return (
     <div style={{ padding: '10px 0', borderBottom: `1px solid ${COLORS.border}20` }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

@@ -1,13 +1,15 @@
 import { useMemo } from 'react';
 import { simulate } from '../lib/simulate';
-import { RETURN_RATES } from '../lib/constants';
+import { getReturnRate } from '../lib/finance';
+import { useLibraryStore } from '../stores/libraryStore';
+import { mergeIntoScenario } from '../lib/resolveItems';
 import type { Scenario, SimRow } from '../lib/types';
 
 export function useSimulation(scenario: Scenario): SimRow[] {
-  const returnRate = RETURN_RATES[scenario.returnMode] ?? 0;
+  const library = useLibraryStore();
   return useMemo(
-    () => simulate(scenario, returnRate),
+    () => simulate(mergeIntoScenario(scenario, library), getReturnRate(scenario)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [JSON.stringify(scenario), returnRate],
+    [JSON.stringify(scenario), JSON.stringify({ d: library.debts, p: library.purchases, r: library.raises })],
   );
 }

@@ -1,33 +1,9 @@
 import { useCallback } from 'react';
-import { COLORS, MONTHS, YEARS } from '../../lib/constants';
-import { money, stdPayment, payoffMonths, totalInterest, payoffLabel } from '../../lib/finance';
+import { useColors } from '../../stores/themeStore';
+import { MONTHS, PURCHASE_YEARS } from '../../lib/constants';
+import { absMo, money, stdPayment, payoffMonths, totalInterest, payoffLabel, remainingBalance } from '../../lib/finance';
+import { START_YEAR } from '../../lib/constants';
 import type { Purchase } from '../../lib/types';
-
-const S = {
-  label: { fontSize: 10, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase' as const },
-  field: {
-    background: COLORS.faint, color: COLORS.text,
-    border: `1px solid ${COLORS.border}`,
-    borderRadius: 4, padding: '7px 9px',
-    fontFamily: "'IBM Plex Mono', monospace",
-    fontSize: 11, outline: 'none',
-    WebkitAppearance: 'none' as const, appearance: 'none' as const,
-  },
-};
-
-const iconBtn: React.CSSProperties = {
-  background: 'none', border: 'none', color: COLORS.muted,
-  fontSize: 18, cursor: 'pointer', padding: '0 4px', lineHeight: 1,
-};
-
-const chipStyle = (active: boolean, color: string = COLORS.accent): React.CSSProperties => ({
-  padding: '5px 9px', fontSize: 11, borderRadius: 4,
-  border:     `1px solid ${active ? color : COLORS.border}`,
-  background:  active ? `${color}22` : 'transparent',
-  color:       active ? color : COLORS.muted,
-  fontFamily: "'IBM Plex Mono', monospace",
-  cursor: 'pointer', transition: 'all 0.12s', whiteSpace: 'nowrap',
-});
 
 interface Props {
   p:           Purchase;
@@ -37,14 +13,65 @@ interface Props {
 }
 
 export function PurchaseItem({ p, onChange, onRemove, housingCost }: Props) {
-  const isHouse    = p.type === 'house';
-  const typeColor  = isHouse ? COLORS.blue : COLORS.orange;
+  const COLORS = useColors();
 
-  const payMo    = payoffMonths(p.loanAmount, p.rate, p.payment);
-  const interest = totalInterest(p.loanAmount, p.rate, p.payment);
+  const S = {
+    label: { fontSize: 10, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase' as const },
+    field: {
+      background: COLORS.faint, color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 4, padding: '7px 9px',
+      fontFamily: "'IBM Plex Mono', monospace",
+      fontSize: 11, outline: 'none',
+      WebkitAppearance: 'none' as const, appearance: 'none' as const,
+    },
+  };
+
+  const iconBtn: React.CSSProperties = {
+    background: 'none', border: 'none', color: COLORS.muted,
+    fontSize: 18, cursor: 'pointer', padding: '0 4px', lineHeight: 1,
+  };
+
+  const chipStyle = (active: boolean, color: string = COLORS.accent): React.CSSProperties => ({
+    padding: '5px 9px', fontSize: 11, borderRadius: 4,
+    border:     `1px solid ${active ? color : COLORS.border}`,
+    background:  active ? `${color}22` : 'transparent',
+    color:       active ? color : COLORS.muted,
+    fontFamily: "'IBM Plex Mono', monospace",
+    cursor: 'pointer', transition: 'all 0.12s', whiteSpace: 'nowrap',
+  });
+
+  const isHouse      = p.type === 'house';
+  const typeColor    = isHouse ? COLORS.blue : COLORS.orange;
+  const startM       = absMo(p.year, p.monthIdx);
+  const isHistorical = startM < 0;
+
+  // For past loans, remaining balance uses the 1× std payment as historical baseline
+  // (matches simulate.ts) so that changing the multiplier doesn't retroactively alter history.
+  const stdPmt           = stdPayment(p.loanAmount, p.rate, p.termMonths) || p.payment;
+  const effectivePrincipal = isHistorical
+    ? remainingBalance(p.loanAmount, p.rate, stdPmt, -startM)
+    : p.loanAmount;
+
+  const alreadyDone = isHistorical && effectivePrincipal <= 0;
+
+  const payMo    = payoffMonths(effectivePrincipal, p.rate, p.payment);
+  const interest = totalInterest(effectivePrincipal, p.rate, p.payment);
   const netImpact = isHouse ? p.payment - housingCost : null;
 
   const std60 = stdPayment(p.loanAmount, p.rate, 60);
+
+  // Payoff label relative to simulation start for historical loans.
+  const payoffLabelStr = isHistorical
+    ? (payMo >= 9999 ? 'never' : payMo === 0 ? '—'
+        : `${MONTHS[payMo % 12]} ${START_YEAR + Math.floor(payMo / 12)}`)
+    : payoffLabel(p);
+
+  const multOptions = [
+    { mult: 1,   label: '1×',   color: COLORS.blue   },
+    { mult: 1.5, label: '1.5×', color: COLORS.accent },
+    { mult: 2,   label: '2×',   color: COLORS.orange },
+  ];
 
   const applyTerm = useCallback((termMonths: number, multiplier: number = 1) =>
     onChange({ termMonths, multiplier, payment: Math.round(stdPayment(p.loanAmount, p.rate, termMonths) * multiplier) }),
@@ -72,18 +99,13 @@ export function PurchaseItem({ p, onChange, onRemove, housingCost }: Props) {
     { mo: 36,  label: '36 mo. / 3 yr.'  },
     { mo: 48,  label: '48 mo. / 4 yr.'  },
     { mo: 60,  label: '60 mo. / 5 yr.'  },
+    { mo: 72,  label: '72 mo. / 6 yr.'  },
     { mo: 84,  label: '84 mo. / 7 yr.'  },
     { mo: 120, label: '120 mo. / 10 yr.', minLoan: 10_000  },
     { mo: 180, label: '180 mo. / 15 yr.', minLoan: 50_000  },
     { mo: 240, label: '240 mo. / 20 yr.', minLoan: 100_000 },
     { mo: 360, label: '360 mo. / 30 yr.', minLoan: 100_000 },
   ].filter(o => !o.minLoan || p.loanAmount >= o.minLoan);
-
-  const multOptions = [
-    { mult: 1,   label: '1×',   color: COLORS.blue   },
-    { mult: 1.5, label: '1.5×', color: COLORS.accent },
-    { mult: 2,   label: '2×',   color: COLORS.orange },
-  ];
 
   return (
     <div style={{
@@ -142,17 +164,27 @@ export function PurchaseItem({ p, onChange, onRemove, housingCost }: Props) {
           onChange={e => onChange({ year: +e.target.value })}
           style={{ ...S.field, flex: '1 1 70px' }}
         >
-          {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+          {PURCHASE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
+        {isHistorical && !alreadyDone && (
+          <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 3, border: `1px solid ${COLORS.blue}50`, color: COLORS.blue, letterSpacing: 1, whiteSpace: 'nowrap' }}>
+            IN PROGRESS
+          </span>
+        )}
+        {alreadyDone && (
+          <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 3, border: `1px solid ${COLORS.muted}40`, color: COLORS.muted, letterSpacing: 1, whiteSpace: 'nowrap' }}>
+            PAID OFF
+          </span>
+        )}
       </div>
 
       {/* Row 3: down · loan · rate */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isHistorical ? '1fr 1fr' : '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
         {[
-          { id: `dp-${p.id}`,  labelText: 'Down Payment', prefix: '$', value: p.downPayment, step: 1000, onCh: (v: number) => onChange({ downPayment: v }) },
-          { id: `la-${p.id}`,  labelText: 'Loan Amount',  prefix: '$', value: p.loanAmount,  step: 1000, onCh: applyLoanAmount },
-          { id: `apr-${p.id}`, labelText: 'Rate (APR)',   suffix: '%', value: p.rate,         step: 0.1,  onCh: applyRate },
-        ].map(({ id, labelText, prefix, suffix, value, step, onCh }) => (
+          !isHistorical && { id: `dp-${p.id}`,  labelText: 'Down Payment', prefix: '$', value: p.downPayment, step: 1000, onCh: (v: number) => onChange({ downPayment: v }) },
+          { id: `la-${p.id}`,  labelText: isHistorical ? 'Original Amount' : 'Loan Amount', prefix: '$', value: p.loanAmount, step: 1000, onCh: applyLoanAmount },
+          { id: `apr-${p.id}`, labelText: 'Rate (APR)', suffix: '%', value: p.rate, step: 0.1, onCh: applyRate },
+        ].filter((x): x is Exclude<typeof x, false> => x !== false).map(({ id, labelText, prefix, suffix, value, step, onCh }) => (
           <div key={id} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <label htmlFor={id} style={S.label}>{labelText}</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -213,15 +245,24 @@ export function PurchaseItem({ p, onChange, onRemove, housingCost }: Props) {
         </div>
       </div>
 
+      {/* Already-paid-off warning */}
+      {alreadyDone && (
+        <div style={{ padding: '8px 12px', borderRadius: 4, border: `1px solid ${COLORS.muted}30`, background: `${COLORS.muted}0A`, fontSize: 11, color: COLORS.muted }}>
+          This loan would have paid off before the projection starts — it has no effect on the chart.
+        </div>
+      )}
+
       {/* Stats bar */}
-      {p.loanAmount > 0 && p.payment > 0 && (
+      {!alreadyDone && p.loanAmount > 0 && p.payment > 0 && (
         <div style={{ borderRadius: 4, overflow: 'hidden', border: `1px solid ${COLORS.border}` }}>
           <div style={{ display: 'flex' }}>
             {[
-              { key: 'Payoff',   val: payoffLabel(p),                                           col: COLORS.accent },
-              { key: 'Months',   val: payMo >= 9999 ? '∞' : `${payMo} mo`,                    col: COLORS.text   },
-              { key: 'Interest', val: money(interest),                                           col: COLORS.red    },
-              { key: 'vs 60mo',  val: std60 > 0 ? `${(p.payment / std60).toFixed(2)}×` : '—',  col: COLORS.orange },
+              { key: 'Payoff',    val: payoffLabelStr,                                                               col: COLORS.accent },
+              { key: 'Months',    val: payMo >= 9999 ? '∞' : `${payMo} mo`,                                      col: COLORS.text   },
+              { key: 'Interest',  val: money(interest),                                                            col: COLORS.red    },
+              isHistorical
+                ? { key: 'Remaining', val: money(effectivePrincipal),                                             col: COLORS.blue   }
+                : { key: 'vs 60mo',   val: std60 > 0 ? `${(p.payment / std60).toFixed(2)}×` : '—',               col: COLORS.orange },
             ].map(({ key, val, col }) => (
               <div key={key} style={{ flex: 1, padding: '8px 10px', borderRight: `1px solid ${COLORS.border}`, background: COLORS.faint }}>
                 <div style={{ color: COLORS.muted, marginBottom: 3, fontSize: 10, letterSpacing: 1 }}>{key}</div>

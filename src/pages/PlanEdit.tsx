@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { COLORS } from '../lib/constants';
+import { useColors } from '../stores/themeStore';
 import { usePlansStore } from '../stores/plansStore';
 import { usePlans } from '../hooks/usePlans';
 import { PlanEditor } from '../components/plan/PlanEditor';
@@ -8,6 +8,7 @@ import { ColorPicker } from '../components/shared/ColorPicker';
 import type { Scenario } from '../lib/types';
 
 export default function PlanEdit() {
+  const COLORS   = useColors();
   const { id }   = useParams<{ id: string }>();
   const navigate = useNavigate();
   const plans    = usePlansStore(s => s.plans);
@@ -22,8 +23,8 @@ export default function PlanEdit() {
 
   const S = {
     field: {
-      background: '#0A0E14', color: '#DDE3EE',
-      border: '1px solid #1B2535',
+      background: COLORS.faint, color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
       borderRadius: 4, padding: '8px 10px',
       fontFamily: "'IBM Plex Mono', monospace",
       fontSize: 12, outline: 'none', width: '100%',

@@ -3,9 +3,12 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { COLORS, START_YEAR, RETURN_RATES } from '../../lib/constants';
-import { shortK, money } from '../../lib/finance';
+import { START_YEAR } from '../../lib/constants';
+import { useColors } from '../../stores/themeStore';
+import { shortK, money, getReturnRate } from '../../lib/finance';
 import { simulate } from '../../lib/simulate';
+import { useLibraryStore } from '../../stores/libraryStore';
+import { mergeIntoScenario } from '../../lib/resolveItems';
 import type { Plan } from '../../lib/types';
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -23,6 +26,7 @@ interface TooltipProps {
 }
 
 function MultiTooltip({ active, label, payload }: TooltipProps) {
+  const COLORS = useColors();
   if (!active || !payload?.length) return null;
   return (
     <div style={{
@@ -44,44 +48,48 @@ function MultiTooltip({ active, label, payload }: TooltipProps) {
 interface Props {
   plans:         Plan[];
   activePlanIds: Set<string>;
+  clipYears?:    number | null;
 }
 
-export function ComparisonChart({ plans, activePlanIds }: Props) {
+export function ComparisonChart({ plans, activePlanIds, clipYears }: Props) {
+  const COLORS      = useColors();
+  const library     = useLibraryStore();
   const activePlans = plans.filter(p => activePlanIds.has(p.id));
 
   const simulations = useMemo(() => {
     const map: Record<string, ReturnType<typeof simulate>> = {};
     for (const plan of activePlans) {
-      const returnRate = RETURN_RATES[plan.scenario.returnMode] ?? 0;
-      map[plan.id] = simulate(plan.scenario, returnRate);
+      const resolved   = mergeIntoScenario(plan.scenario, library);
+      const returnRate = getReturnRate(plan.scenario);
+      map[plan.id] = simulate(resolved, returnRate);
     }
     return map;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePlans.map(p => p.id + p.updated).join(',')]);
+  }, [activePlans.map(p => p.id + p.updated).join(','), library]);
 
   const maxHorizon = Math.max(0, ...activePlans.map(p => p.scenario.horizonYears));
-  const minYr = START_YEAR;
-  const maxYr = START_YEAR + maxHorizon;
+  const clipped    = clipYears != null ? Math.min(clipYears, maxHorizon) : maxHorizon;
+  const minYr      = START_YEAR;
+  const maxYr      = START_YEAR + clipped;
 
-  // Build chart data using a decimal year as x — every month gets a unique position
-  // so Recharts draws smooth curves instead of collapsing same-integer-year points.
   const chartData = useMemo(() => {
     if (activePlans.length === 0) return [];
     const refPlan = activePlans.reduce((a, b) =>
       a.scenario.horizonYears >= b.scenario.horizonYears ? a : b,
     );
+    const maxM   = clipped * 12;
     const refSim = simulations[refPlan.id] ?? [];
-    return refSim.map(row => {
+    return refSim.filter(row => row.m <= maxM).map(row => {
       const decimalYr = START_YEAR + row.m / 12;
       const point: Record<string, number | string> = { decimalYr };
       for (const plan of activePlans) {
         const sim   = simulations[plan.id] ?? [];
-        const match = sim[row.m]; // direct index — sims are 0-indexed by month
+        const match = sim[row.m];
         point[plan.title || plan.id] = match?.savings ?? 0;
       }
       return point;
     });
-  }, [activePlans, simulations]);
+  }, [activePlans, simulations, clipped]);
 
   if (activePlans.length === 0) {
     return (

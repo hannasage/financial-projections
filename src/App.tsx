@@ -1,9 +1,12 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
+import { useThemeStore } from './stores/themeStore'
 import { usePlans } from './hooks/usePlans'
 import Auth from './pages/Auth'
 import Dashboard from './pages/Dashboard'
-import Scenarios from './pages/Library'
+import Plans from './pages/Library'
+import IO from './pages/IO'
 import PlanNew from './pages/PlanNew'
 import PlanEdit from './pages/PlanEdit'
 
@@ -15,6 +18,14 @@ function RequireAuth() {
 }
 
 export default function App() {
+  const theme = useThemeStore(s => s.theme)
+
+  useEffect(() => {
+    document.body.style.background = theme.colors.bg
+    document.documentElement.style.setProperty('--plan-accent', theme.colors.accent)
+    document.documentElement.setAttribute('data-color-scheme', theme.isDark ? 'dark' : 'light')
+  }, [theme])
+
   return (
     <BrowserRouter>
       <Routes>
@@ -22,7 +33,8 @@ export default function App() {
         <Route element={<RequireAuth />}>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/scenarios" element={<Scenarios />} />
+          <Route path="/io"        element={<IO />} />
+          <Route path="/scenarios" element={<Plans />} />
           <Route path="/plans/new" element={<PlanNew />} />
           <Route path="/plans/:id/edit" element={<PlanEdit />} />
         </Route>

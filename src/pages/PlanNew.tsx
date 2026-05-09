@@ -1,25 +1,31 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { COLORS, PLAN_COLORS } from '../lib/constants';
+import { useColors } from '../stores/themeStore';
+import { useThemeStore } from '../stores/themeStore';
 import { usePlans } from '../hooks/usePlans';
+import { useLibraryStore } from '../stores/libraryStore';
 import { PlanEditor } from '../components/plan/PlanEditor';
 import { ColorPicker } from '../components/shared/ColorPicker';
 import type { Scenario } from '../lib/types';
 
 export default function PlanNew() {
-  const navigate = useNavigate();
+  const COLORS         = useColors();
+  const navigate       = useNavigate();
   const { createPlan } = usePlans();
+  const profile        = useLibraryStore(s => s.profile);
 
   const [title,       setTitle]       = useState('');
   const [description, setDescription] = useState('');
-  const [color,       setColor]       = useState<string>(PLAN_COLORS[0].value);
+  const [color,       setColor]       = useState<string>(
+    useThemeStore.getState().theme.planColors[0]?.value ?? '#C9F53A',
+  );
   const [saving,      setSaving]      = useState(false);
   const [error,       setError]       = useState('');
 
   const S = {
     field: {
-      background: '#0A0E14', color: '#DDE3EE',
-      border: '1px solid #1B2535',
+      background: COLORS.faint, color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
       borderRadius: 4, padding: '8px 10px',
       fontFamily: "'IBM Plex Mono', monospace",
       fontSize: 12, outline: 'none', width: '100%',
@@ -77,8 +83,13 @@ export default function PlanNew() {
         </div>
       </div>
 
-      {/* Editor */}
+      {/* Editor — seeds core settings from I/O profile */}
       <PlanEditor
+        initialScenario={{
+          ...profile,
+          debts: [], purchases: [], raises: [],
+          excludedDebtIds: [], excludedPurchaseIds: [], excludedRaiseIds: [],
+        }}
         color={color}
         onSave={handleSave}
         onCancel={() => navigate('/scenarios')}

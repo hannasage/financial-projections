@@ -1,41 +1,48 @@
 import { useMemo } from 'react';
-import { COLORS, RETURN_RATES } from '../../lib/constants';
-import { money } from '../../lib/finance';
+import { useColors } from '../../stores/themeStore';
+import { money, getReturnRate } from '../../lib/finance';
 import { simulate } from '../../lib/simulate';
+import { useLibraryStore } from '../../stores/libraryStore';
+import { mergeIntoScenario } from '../../lib/resolveItems';
 import type { Plan } from '../../lib/types';
 
 interface Props {
   plans:         Plan[];
   activePlanIds: Set<string>;
+  clipYears?:    number | null;
 }
 
-const thStyle = {
-  padding: '6px 10px 8px', textAlign: 'right' as const,
-  fontWeight: 500, fontSize: 11, letterSpacing: 1,
-  textTransform: 'uppercase' as const, whiteSpace: 'nowrap' as const,
-};
-
-export function ComparisonTable({ plans, activePlanIds }: Props) {
+export function ComparisonTable({ plans, activePlanIds, clipYears }: Props) {
+  const COLORS      = useColors();
+  const library     = useLibraryStore();
   const activePlans = plans.filter(p => activePlanIds.has(p.id));
+
+  const thStyle = {
+    padding: '6px 10px 8px', textAlign: 'right' as const,
+    fontWeight: 500, fontSize: 11, letterSpacing: 1,
+    textTransform: 'uppercase' as const, whiteSpace: 'nowrap' as const,
+  };
 
   const simulations = useMemo(() => {
     const map: Record<string, ReturnType<typeof simulate>> = {};
     for (const plan of activePlans) {
-      const returnRate = RETURN_RATES[plan.scenario.returnMode] ?? 0;
-      map[plan.id] = simulate(plan.scenario, returnRate);
+      const resolved   = mergeIntoScenario(plan.scenario, library);
+      const returnRate = getReturnRate(plan.scenario);
+      map[plan.id] = simulate(resolved, returnRate);
     }
     return map;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePlans.map(p => p.id + p.updated).join(',')]);
+  }, [activePlans.map(p => p.id + p.updated).join(','), library]);
 
   const rows = useMemo(() => {
     if (activePlans.length === 0) return [];
     const refPlan = activePlans.reduce((a, b) =>
       a.scenario.horizonYears >= b.scenario.horizonYears ? a : b,
     );
-    const refSim = simulations[refPlan.id] ?? [];
+    const maxM    = clipYears != null ? clipYears * 12 : Infinity;
+    const refSim  = simulations[refPlan.id] ?? [];
     return refSim
-      .filter(r => r.m % 12 === 0)
+      .filter(r => r.m % 12 === 0 && r.m <= maxM)
       .map(row => ({
         ageFloor: row.ageFloor,
         yr:       row.yr,
@@ -51,7 +58,7 @@ export function ComparisonTable({ plans, activePlanIds }: Props) {
         }),
       }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePlans.map(p => p.id + p.updated).join(','), simulations]);
+  }, [activePlans.map(p => p.id + p.updated).join(','), simulations, clipYears]);
 
   if (activePlans.length === 0) {
     return (

@@ -3,9 +3,13 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts';
-import { COLORS, START_YEAR, RETURN_RATES } from '../../lib/constants';
-import { absMo, money, shortK, stdPayment, payoffMonths } from '../../lib/finance';
+import { START_YEAR, MONTHS } from '../../lib/constants';
+import { useColors } from '../../stores/themeStore';
+import { useThemeStore } from '../../stores/themeStore';
+import { useLibraryStore } from '../../stores/libraryStore';
+import { absMo, money, shortK, stdPayment, payoffMonths, getReturnRate } from '../../lib/finance';
 import { simulate } from '../../lib/simulate';
+import { mergeIntoScenario } from '../../lib/resolveItems';
 import { ChartTooltip } from './ChartTooltip';
 import { DebtItem } from './DebtItem';
 import { PurchaseItem } from './PurchaseItem';
@@ -18,47 +22,21 @@ const DEFAULT_SCENARIO: Scenario = {
   envelope: 1_000, startSavings: 0, startAge: 30, horizonYears: 10,
   returnMode: 'hysa', taxPct: 25, baseSalary: 60_000, housingCost: 1_200,
   debts: [], purchases: [], raises: [],
-};
-
-const S = {
-  label: { fontSize: 10, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase' as const },
-  field: {
-    background: COLORS.faint, color: COLORS.text,
-    border: `1px solid ${COLORS.border}`,
-    borderRadius: 4, padding: '7px 9px',
-    fontFamily: "'IBM Plex Mono', monospace",
-    fontSize: 11, outline: 'none',
-    WebkitAppearance: 'none' as const, appearance: 'none' as const,
-  },
-};
-
-const chipStyle = (active: boolean, color: string = COLORS.accent): React.CSSProperties => ({
-  padding: '5px 9px', fontSize: 11, borderRadius: 4,
-  border:     `1px solid ${active ? color : COLORS.border}`,
-  background:  active ? `${color}22` : 'transparent',
-  color:       active ? color : COLORS.muted,
-  fontFamily: "'IBM Plex Mono', monospace",
-  cursor: 'pointer', transition: 'all 0.12s', whiteSpace: 'nowrap',
-});
-
-const addBtnStyle: React.CSSProperties = {
-  padding: '6px 13px', fontSize: 11, borderRadius: 4,
-  border: `1px solid ${COLORS.border}`,
-  background: 'transparent', color: COLORS.muted,
-  fontFamily: "'IBM Plex Mono', monospace",
-  cursor: 'pointer', flexShrink: 0,
+  excludedDebtIds: [], excludedPurchaseIds: [], excludedRaiseIds: [],
 };
 
 interface SectionHeadProps {
   label:     string;
   onAdd?:    () => void;
   addLabel?: string;
+  addBtnStyle: React.CSSProperties;
+  labelStyle:  React.CSSProperties;
 }
 
-function SectionHead({ label, onAdd, addLabel = '+ Add' }: SectionHeadProps) {
+function SectionHead({ label, onAdd, addLabel = '+ Add', addBtnStyle, labelStyle }: SectionHeadProps) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-      <span style={S.label}>{label}</span>
+      <span style={labelStyle}>{label}</span>
       {onAdd && <button onClick={onAdd} style={addBtnStyle}>{addLabel}</button>}
     </div>
   );
@@ -73,20 +51,71 @@ interface Props {
 }
 
 export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving }: Props) {
-  const accent = color ?? COLORS.accent;
+  const COLORS = useColors();
+  const themeAccent = useThemeStore(s => s.theme.colors.accent);
+  const accent = color ?? themeAccent;
   const init = initialScenario ?? DEFAULT_SCENARIO;
+
+  const S = {
+    label: { fontSize: 10, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase' as const },
+    field: {
+      background: COLORS.faint, color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 4, padding: '7px 9px',
+      fontFamily: "'IBM Plex Mono', monospace",
+      fontSize: 11, outline: 'none',
+      WebkitAppearance: 'none' as const, appearance: 'none' as const,
+    },
+  };
+
+  const chipStyle = (active: boolean, chipColor: string = accent): React.CSSProperties => ({
+    padding: '5px 9px', fontSize: 11, borderRadius: 4,
+    border:     `1px solid ${active ? chipColor : COLORS.border}`,
+    background:  active ? `${chipColor}22` : 'transparent',
+    color:       active ? chipColor : COLORS.muted,
+    fontFamily: "'IBM Plex Mono', monospace",
+    cursor: 'pointer', transition: 'all 0.12s', whiteSpace: 'nowrap',
+  });
+
+  const addBtnStyle: React.CSSProperties = {
+    padding: '6px 13px', fontSize: 11, borderRadius: 4,
+    border: `1px solid ${COLORS.border}`,
+    background: 'transparent', color: COLORS.muted,
+    fontFamily: "'IBM Plex Mono', monospace",
+    cursor: 'pointer', flexShrink: 0,
+  };
 
   const [envelope,     setEnvelope]     = useState(init.envelope);
   const [startSavings, setStartSavings] = useState(init.startSavings);
   const [startAge,     setStartAge]     = useState(init.startAge);
   const [horizonYears, setHorizonYears] = useState(init.horizonYears);
   const [returnMode,   setReturnMode]   = useState<Scenario['returnMode']>(init.returnMode);
+  const [hysaRate,     setHysaRate]     = useState(init.hysaRate ?? 4.5);
   const [taxPct,       setTaxPct]       = useState(init.taxPct);
   const [baseSalary,   setBaseSalary]   = useState(init.baseSalary);
   const [housingCost,  setHousingCost]  = useState(init.housingCost);
-  const [debts,        setDebts]        = useState<Debt[]>(init.debts);
-  const [purchases,    setPurchases]    = useState<Purchase[]>(init.purchases);
-  const [raises,       setRaises]       = useState<Raise[]>(init.raises);
+  const [debts,               setDebts]               = useState<Debt[]>(init.debts);
+  const [cascadeDebts,        setCascadeDebts]        = useState(init.cascadeDebts ?? false);
+  const [purchases,           setPurchases]           = useState<Purchase[]>(init.purchases);
+  const [raises,              setRaises]              = useState<Raise[]>(init.raises);
+  const [excludedDebtIds,     setExcludedDebtIds]     = useState<string[]>(init.excludedDebtIds     ?? []);
+  const [excludedPurchaseIds, setExcludedPurchaseIds] = useState<string[]>(init.excludedPurchaseIds ?? []);
+  const [excludedRaiseIds,    setExcludedRaiseIds]    = useState<string[]>(init.excludedRaiseIds    ?? []);
+
+  const library = useLibraryStore();
+
+  const toggleDebt     = useCallback((id: string) => setExcludedDebtIds(ids     => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]), []);
+  const togglePurchase = useCallback((id: string) => setExcludedPurchaseIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]), []);
+  const toggleRaise    = useCallback((id: string) => setExcludedRaiseIds(ids    => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]), []);
+
+  // Fork: copy a library item as a scenario-specific custom item, then exclude the library version.
+  const forkDebt     = useCallback((d: Debt)     => { setDebts(ds => [...ds, { ...d, id: makeId() }]);     setExcludedDebtIds(ids     => ids.includes(d.id) ? ids : [...ids, d.id]); }, []);
+  const forkPurchase = useCallback((p: Purchase) => { setPurchases(ps => [...ps, { ...p, id: makeId() }]); setExcludedPurchaseIds(ids => ids.includes(p.id) ? ids : [...ids, p.id]); }, []);
+  const forkRaise    = useCallback((r: Raise)    => { setRaises(rs => [...rs, { ...r, id: makeId() }]);     setExcludedRaiseIds(ids    => ids.includes(r.id) ? ids : [...ids, r.id]); }, []);
+
+  const resolvedDebts     = useMemo(() => [...library.debts.filter(d => !excludedDebtIds.includes(d.id)),         ...debts],     [library.debts,     excludedDebtIds,     debts]);
+  const resolvedPurchases = useMemo(() => [...library.purchases.filter(p => !excludedPurchaseIds.includes(p.id)), ...purchases], [library.purchases, excludedPurchaseIds, purchases]);
+  const resolvedRaises    = useMemo(() => [...library.raises.filter(r => !excludedRaiseIds.includes(r.id)),       ...raises],    [library.raises,    excludedRaiseIds,    raises]);
 
   const addDebt    = () => setDebts(d => [...d, { id: makeId(), label: '', payment: 200, payoffMonthIdx: 0, payoffYear: START_YEAR + 1 }]);
   const changeDebt = useCallback((id: string, patch: Partial<Debt>) => setDebts(d => d.map(x => x.id === id ? { ...x, ...patch } : x)), []);
@@ -108,32 +137,33 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving 
   const changeRaise = useCallback((id: string, patch: Partial<Raise>) => setRaises(r => r.map(x => x.id === id ? { ...x, ...patch } : x)), []);
   const rmRaise     = useCallback((id: string) => setRaises(r => r.filter(x => x.id !== id)), []);
 
-  const returnRate = RETURN_RATES[returnMode] ?? 0;
-
   const scenario: Scenario = useMemo(() => ({
     envelope, startSavings, startAge, horizonYears,
-    returnMode, taxPct, baseSalary, housingCost,
-    debts, purchases, raises,
-  }), [envelope, startSavings, startAge, horizonYears, returnMode, taxPct, baseSalary, housingCost, debts, purchases, raises]);
+    returnMode, hysaRate, taxPct, baseSalary, housingCost,
+    debts, cascadeDebts, purchases, raises,
+    excludedDebtIds, excludedPurchaseIds, excludedRaiseIds,
+  }), [envelope, startSavings, startAge, horizonYears, returnMode, hysaRate, taxPct, baseSalary, housingCost, debts, cascadeDebts, purchases, raises, excludedDebtIds, excludedPurchaseIds, excludedRaiseIds]);
 
-  const data   = useMemo(() => simulate(scenario, returnRate), [scenario, returnRate]);
+  const returnRate = getReturnRate(scenario);
+
+  const data   = useMemo(() => simulate(mergeIntoScenario(scenario, library), returnRate), [scenario, library, returnRate]);
   const yearly = useMemo(() => data.filter(d => d.m % 12 === 0), [data]);
   // All monthly points with a decimal-year x key so Recharts draws smooth curves.
   const chart  = useMemo(() => data.map(row => ({ ...row, decimalYr: START_YEAR + row.m / 12 })), [data]);
   const snap   = (m: number) => data[Math.min(m, data.length - 1)];
   const endM   = horizonYears * 12;
 
-  const nowDebtBurden = debts.reduce(
+  const nowDebtBurden = resolvedDebts.reduce(
     (s, d) => s + (absMo(d.payoffYear, d.payoffMonthIdx) > 0 ? d.payment : 0), 0,
   );
-  const nowLoanBurden = purchases.reduce((s, p) => {
+  const nowLoanBurden = resolvedPurchases.reduce((s, p) => {
     const sm = absMo(p.year, p.monthIdx);
     const pm = sm + payoffMonths(p.loanAmount, p.rate, p.payment);
     return s + (0 >= sm && 0 < pm ? p.payment : 0);
   }, 0);
   const effectiveNow = envelope - nowDebtBurden - nowLoanBurden;
 
-  const purchaseMarkers = purchases
+  const purchaseMarkers = resolvedPurchases
     .filter(p => p.loanAmount > 0 && p.payment > 0)
     .map(p => {
       const sm  = absMo(p.year, p.monthIdx);
@@ -159,7 +189,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving 
 
         {/* ── CORE SETTINGS ── */}
         <section className="sec" aria-label="Core settings">
-          <SectionHead label="⚙️ Core Settings" />
+          <SectionHead label="⚙️ Core Settings" addBtnStyle={addBtnStyle} labelStyle={S.label} />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -227,14 +257,31 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving 
               <span style={S.label} id="growth-label">Growth Rate</span>
               <fieldset style={{ border: 'none', padding: 0 }} aria-labelledby="growth-label">
                 <div style={{ display: 'flex', gap: 5 }}>
-                  {([['none','0% cash'],['hysa','4.5% HYSA'],['invested','7% index']] as const).map(([k, l]) => (
+                  {([['none','0% cash'],['hysa','HYSA'],['invested','7% index']] as const).map(([k, l]) => (
                     <button
                       key={k} onClick={() => setReturnMode(k)}
                       aria-pressed={returnMode === k}
                       style={{ ...chipStyle(returnMode === k, accent), flex: 1, padding: '7px 4px', fontSize: 10 }}
-                    >{l}</button>
+                    >{k === 'hysa' ? `${hysaRate}% HYSA` : l}</button>
                   ))}
                 </div>
+                {returnMode === 'hysa' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                    <input
+                      type="number" value={hysaRate} min={0} max={20} step={0.1}
+                      aria-label="Custom HYSA rate"
+                      onChange={e => setHysaRate(Math.max(0, Math.min(20, +e.target.value)))}
+                      style={{ ...S.field, width: 70, textAlign: 'right' }}
+                    />
+                    <span style={{ fontSize: 11, color: COLORS.muted }}>% APY</span>
+                    <input
+                      type="range" min={0} max={10} step={0.1} value={hysaRate}
+                      aria-label="HYSA rate slider"
+                      onChange={e => setHysaRate(+e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                )}
               </fieldset>
             </div>
           </div>
@@ -255,14 +302,56 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving 
 
         {/* ── DEBTS ── */}
         <section className="sec" aria-label="Active debts">
-          <SectionHead label="💳 Active Debts" onAdd={addDebt} addLabel="+ Add Debt" />
-          <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: debts.length ? 8 : 0 }}>
-            Each payment comes from inside the envelope and redirects to savings when cleared.
-          </p>
-          {debts.length === 0 && (
-            <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 8, fontStyle: 'italic' }}>
-              None — full envelope goes to savings.
+          <SectionHead label="💳 Active Debts" onAdd={addDebt} addLabel="+ Custom" addBtnStyle={addBtnStyle} labelStyle={S.label} />
+          {library.debts.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <span style={{ ...S.label, display: 'block', marginBottom: 6 }}>From I/O</span>
+              {library.debts.map(d => {
+                const off = excludedDebtIds.includes(d.id);
+                return (
+                  <div key={d.id} role="button" tabIndex={0}
+                    onClick={() => toggleDebt(d.id)}
+                    onKeyDown={e => e.key === 'Enter' && toggleDebt(d.id)}
+                    aria-pressed={!off}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '9px 12px', borderRadius: 6, cursor: 'pointer',
+                      border: `1px solid ${off ? COLORS.border : COLORS.accent}40`,
+                      background: off ? 'transparent' : `${COLORS.accent}08`,
+                      marginTop: 6, opacity: off ? 0.5 : 1, transition: 'all 0.12s',
+                    }}>
+                    <span style={{ color: off ? COLORS.muted : COLORS.accent, fontSize: 13 }}>{off ? '○' : '●'}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 500, color: off ? COLORS.muted : COLORS.text }}>{d.label || 'Unnamed'}</div>
+                      <div style={{ fontSize: 10, color: COLORS.muted }}>−{money(d.payment)}/mo · off {MONTHS[d.payoffMonthIdx]} {d.payoffYear}</div>
+                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); forkDebt(d); }}
+                      title="Copy to scenario as a custom item"
+                      style={{
+                        padding: '4px 8px', fontSize: 10, borderRadius: 4,
+                        border: `1px solid ${COLORS.border}`,
+                        background: 'transparent', color: COLORS.muted,
+                        fontFamily: "'IBM Plex Mono', monospace",
+                        cursor: 'pointer', flexShrink: 0,
+                      }}
+                    >⎘ fork</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {library.debts.length === 0 && debts.length === 0 && (
+            <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 4, fontStyle: 'italic' }}>
+              Add debts in <a href="/io" style={{ color: COLORS.accent, textDecoration: 'none' }}>I/O</a> to include them here, or use + Custom for scenario-only items.
             </p>
+          )}
+          {resolvedDebts.length >= 2 && (
+            <div style={{ margin: '8px 0' }}>
+              <button onClick={() => setCascadeDebts(v => !v)} aria-pressed={cascadeDebts} style={chipStyle(cascadeDebts)}>
+                {cascadeDebts ? '⛓ cascade on' : '⛓ cascade freed payments'}
+              </button>
+            </div>
           )}
           {debts.map(d => (
             <DebtItem key={d.id} d={d} onChange={p => changeDebt(d.id, p)} onRemove={() => rmDebt(d.id)} />
@@ -271,39 +360,105 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving 
 
         {/* ── PURCHASES ── */}
         <section className="sec" aria-label="Major purchases">
-          <SectionHead label="🛒 Major Purchases" onAdd={addPurchase} addLabel="+ Add Purchase" />
-          <p style={{ fontSize: 11, color: COLORS.muted }}>
-            Down payment hits savings at purchase. Loan comes from envelope until paid off.
-          </p>
-          {purchases.length === 0 && (
-            <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 8, fontStyle: 'italic' }}>None planned.</p>
+          <SectionHead label="🛒 Major Purchases" onAdd={addPurchase} addLabel="+ Custom" addBtnStyle={addBtnStyle} labelStyle={S.label} />
+          {library.purchases.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <span style={{ ...S.label, display: 'block', marginBottom: 6 }}>From I/O</span>
+              {library.purchases.map(p => {
+                const off = excludedPurchaseIds.includes(p.id);
+                return (
+                  <div key={p.id} role="button" tabIndex={0}
+                    onClick={() => togglePurchase(p.id)}
+                    onKeyDown={e => e.key === 'Enter' && togglePurchase(p.id)}
+                    aria-pressed={!off}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '9px 12px', borderRadius: 6, cursor: 'pointer',
+                      border: `1px solid ${off ? COLORS.border : COLORS.orange}40`,
+                      background: off ? 'transparent' : `${COLORS.orange}08`,
+                      marginTop: 6, opacity: off ? 0.5 : 1, transition: 'all 0.12s',
+                    }}>
+                    <span style={{ color: off ? COLORS.muted : COLORS.orange, fontSize: 13 }}>{off ? '○' : '●'}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 500, color: off ? COLORS.muted : COLORS.text }}>{p.label || 'Unnamed'}</div>
+                      <div style={{ fontSize: 10, color: COLORS.muted }}>−{money(p.payment)}/mo · {p.type === 'house' ? '🏠' : '🚗'} {p.year}</div>
+                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); forkPurchase(p); }}
+                      title="Copy to scenario as a custom item"
+                      style={{
+                        padding: '4px 8px', fontSize: 10, borderRadius: 4,
+                        border: `1px solid ${COLORS.border}`,
+                        background: 'transparent', color: COLORS.muted,
+                        fontFamily: "'IBM Plex Mono', monospace",
+                        cursor: 'pointer', flexShrink: 0,
+                      }}
+                    >⎘ fork</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {library.purchases.length === 0 && purchases.length === 0 && (
+            <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 4, fontStyle: 'italic' }}>
+              Add purchases in <a href="/io" style={{ color: COLORS.accent, textDecoration: 'none' }}>I/O</a> to include them here, or use + Custom for scenario-only items.
+            </p>
           )}
           {purchases.map(p => (
-            <PurchaseItem
-              key={p.id} p={p} housingCost={housingCost}
-              onChange={patch => changePurchase(p.id, patch)}
-              onRemove={() => rmPurchase(p.id)}
-            />
+            <PurchaseItem key={p.id} p={p} housingCost={housingCost}
+              onChange={patch => changePurchase(p.id, patch)} onRemove={() => rmPurchase(p.id)} />
           ))}
         </section>
 
         {/* ── RAISES ── */}
         <section className="sec" aria-label="Raise scenarios">
-          <SectionHead label="📈 Raise Scenarios" onAdd={addRaise} addLabel="+ Add Raise" />
-          <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: raises.length ? 8 : 0 }}>
-            Net-of-tax income above base salary — added on top of envelope from effective month.
-          </p>
-          {raises.length === 0 && (
-            <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 8, fontStyle: 'italic' }}>
-              No raises — base salary throughout.
+          <SectionHead label="📈 Raise Scenarios" onAdd={addRaise} addLabel="+ Custom" addBtnStyle={addBtnStyle} labelStyle={S.label} />
+          {library.raises.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <span style={{ ...S.label, display: 'block', marginBottom: 6 }}>From I/O</span>
+              {library.raises.map(r => {
+                const off = excludedRaiseIds.includes(r.id);
+                return (
+                  <div key={r.id} role="button" tabIndex={0}
+                    onClick={() => toggleRaise(r.id)}
+                    onKeyDown={e => e.key === 'Enter' && toggleRaise(r.id)}
+                    aria-pressed={!off}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '9px 12px', borderRadius: 6, cursor: 'pointer',
+                      border: `1px solid ${off ? COLORS.border : COLORS.blue}40`,
+                      background: off ? 'transparent' : `${COLORS.blue}08`,
+                      marginTop: 6, opacity: off ? 0.5 : 1, transition: 'all 0.12s',
+                    }}>
+                    <span style={{ color: off ? COLORS.muted : COLORS.blue, fontSize: 13 }}>{off ? '○' : '●'}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 500, color: off ? COLORS.muted : COLORS.text }}>{MONTHS[r.monthIdx]} {r.year}</div>
+                      <div style={{ fontSize: 10, color: COLORS.muted }}>{money(r.salary)}/yr</div>
+                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); forkRaise(r); }}
+                      title="Copy to scenario as a custom item"
+                      style={{
+                        padding: '4px 8px', fontSize: 10, borderRadius: 4,
+                        border: `1px solid ${COLORS.border}`,
+                        background: 'transparent', color: COLORS.muted,
+                        fontFamily: "'IBM Plex Mono', monospace",
+                        cursor: 'pointer', flexShrink: 0,
+                      }}
+                    >⎘ fork</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {library.raises.length === 0 && raises.length === 0 && (
+            <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 4, fontStyle: 'italic' }}>
+              Add raises in <a href="/io" style={{ color: COLORS.accent, textDecoration: 'none' }}>I/O</a> or use + Custom for scenario-only raises.
             </p>
           )}
           {raises.map(r => (
-            <RaiseItem
-              key={r.id} r={r} taxPct={taxPct} baseSalary={baseSalary}
-              onChange={patch => changeRaise(r.id, patch)}
-              onRemove={() => rmRaise(r.id)}
-            />
+            <RaiseItem key={r.id} r={r} taxPct={taxPct} baseSalary={baseSalary}
+              onChange={patch => changeRaise(r.id, patch)} onRemove={() => rmRaise(r.id)} />
           ))}
         </section>
 
@@ -325,7 +480,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving 
                 <div style={{ fontSize: 11, color: COLORS.muted }}>{s.label}</div>
                 {s.hi && (
                   <div style={{ fontSize: 10, color: `${accent}99`, marginTop: 3 }}>
-                    {returnMode === 'none' ? '0% · cash' : returnMode === 'hysa' ? '4.5% HYSA' : '7% invested'}
+                    {returnMode === 'none' ? '0% · cash' : returnMode === 'hysa' ? `${hysaRate}% HYSA` : '7% invested'}
                   </div>
                 )}
               </div>
@@ -455,7 +610,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving 
             style={{
               padding: '9px 20px', fontSize: 12, borderRadius: 4,
               border: `1px solid ${accent}`,
-              background: accent, color: '#07090C',
+              background: accent, color: COLORS.textOnAccent,
               fontFamily: "'IBM Plex Mono', monospace",
               fontWeight: 600, cursor: isSaving ? 'not-allowed' : 'pointer',
               opacity: isSaving ? 0.6 : 1,

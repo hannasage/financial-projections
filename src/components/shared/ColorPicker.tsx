@@ -1,4 +1,4 @@
-import { PLAN_COLORS, COLORS } from '../../lib/constants';
+import { useColors, usePlanColors } from '../../stores/themeStore';
 
 interface Props {
   value:    string;
@@ -6,9 +6,12 @@ interface Props {
 }
 
 export function ColorPicker({ value, onChange }: Props) {
+  const COLORS     = useColors();
+  const planColors = usePlanColors();
+
   return (
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} role="radiogroup" aria-label="Plan color">
-      {PLAN_COLORS.map(c => (
+      {planColors.map(c => (
         <button
           key={c.value}
           role="radio"
@@ -21,7 +24,7 @@ export function ColorPicker({ value, onChange }: Props) {
             border: value === c.value ? `2px solid ${COLORS.text}` : `2px solid transparent`,
             cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 13, color: '#07090C', fontWeight: 700,
+            fontSize: 13, color: COLORS.bg, fontWeight: 700,
             transition: 'border-color 0.12s',
             outline: 'none',
           }}
