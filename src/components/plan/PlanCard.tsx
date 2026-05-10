@@ -3,11 +3,17 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useColors } from '../../stores/themeStore';
 import { useLibraryStore } from '../../stores/libraryStore';
-import { simulate } from '../../lib/simulate';
-import { money, getReturnRate, payoffLabel } from '../../lib/finance';
+import { simulate, computePayoffs } from '../../lib/simulate';
+import { money, getReturnRate } from '../../lib/finance';
 import { mergeIntoScenario } from '../../lib/resolveItems';
-import { MONTHS } from '../../lib/constants';
+import { START_YEAR, MONTHS } from '../../lib/constants';
 import type { Plan } from '../../lib/types';
+
+function absMonthToLabel(m: number): string {
+  if (!isFinite(m) || m >= 9999) return 'never';
+  if (m <= 0) return 'paid off';
+  return `${MONTHS[m % 12]} ${START_YEAR + Math.floor(m / 12)}`;
+}
 
 interface PlanCardProps {
   plan:        Plan;
@@ -31,14 +37,15 @@ export function PlanCard({ plan, onEdit, onDelete, onDuplicate }: PlanCardProps)
     plan.scenario.returnMode === 'hysa'   ? `${plan.scenario.hysaRate ?? 4.5}% HYSA` :
                                             '7% invested';
 
+  const { debtPayoffM, purchasePayoffM } = computePayoffs(merged);
   const payoffItems = [
     ...merged.debts.map(d => ({
       label: d.label || 'Debt',
-      date:  d.payoffYear ? `${MONTHS[d.payoffMonthIdx ?? 0]} ${d.payoffYear}` : '—',
+      date:  absMonthToLabel(debtPayoffM.get(d.id) ?? Infinity),
     })),
     ...merged.purchases.map(p => ({
       label: p.label || (p.type === 'house' ? 'Mortgage' : 'Loan'),
-      date:  payoffLabel(p),
+      date:  absMonthToLabel(purchasePayoffM.get(p.id) ?? Infinity),
     })),
   ];
 
