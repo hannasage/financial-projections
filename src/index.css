@@ -31,6 +31,16 @@ input[type=range] {
   width: 100%;
 }
 
+/* Numeric inputs: plain field, no browser stepper arrows */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 select:focus-visible,
 input:focus-visible,
 button:focus-visible {

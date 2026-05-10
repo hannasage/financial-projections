@@ -5,7 +5,7 @@ import { getTodayStartDate } from '../lib/constants';
 
 export type Profile = Pick<Scenario,
   'startMonthIdx' | 'startYear' | 'envelope' | 'startSavings' | 'startAge' | 'horizonYears' |
-  'returnMode' | 'hysaRate' | 'taxPct' | 'baseSalary' | 'housingCost'
+  'returnMode' | 'hysaRate' | 'taxPct' | 'baseSalary' | 'housingCost' | 'monthlyAllowance'
 >;
 
 const today = getTodayStartDate();
@@ -14,7 +14,7 @@ const DEFAULT_PROFILE: Profile = {
   startYear: today.startYear,
   envelope: 1_000, startSavings: 0, startAge: 30, horizonYears: 10,
   returnMode: 'hysa', hysaRate: 4.5, taxPct: 25,
-  baseSalary: 60_000, housingCost: 1_200,
+  baseSalary: 60_000, housingCost: 1_200, monthlyAllowance: 0,
 };
 
 function normalizeProfile(input?: Partial<Profile> | null): Profile {

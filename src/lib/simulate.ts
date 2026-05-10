@@ -17,7 +17,7 @@ export function simulate(
 ): SimRow[] {
   const {
     envelope, startSavings, startAge, startYear, startMonthIdx,
-    debts, purchases, raises, taxPct, horizonYears, housingCost,
+    debts, purchases, raises, taxPct, horizonYears, housingCost, monthlyAllowance,
     cascadeDebts,
   } = scenario;
   const today = getTodayStartDate();
@@ -152,8 +152,9 @@ export function simulate(
 
     if (downThisMonth > 0) savings -= downThisMonth;
 
-    // Housing is a baseline monthly expense; buying a house offsets it via rentRelief.
-    const effectiveEnv  = envelope + raiseBonus - housingCost + rentRelief;
+    const allowance = monthlyAllowance ?? 0;
+    // Housing + allowance come out of envelope; buying a house offsets rent via rentRelief.
+    const effectiveEnv  = envelope + raiseBonus - housingCost - allowance + rentRelief;
     const savingsInflow = effectiveEnv - debtBurden - purchaseOutflow;
 
     savings =
@@ -211,6 +212,7 @@ export function simulate(
       raiseBonus:      Math.round(raiseBonus),
       rentRelief:      Math.round(rentRelief),
       effectiveEnv:    Math.round(effectiveEnv),
+      monthlyAllowance: Math.round(allowance),
       activePurchases,
     });
   }

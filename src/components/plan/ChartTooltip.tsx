@@ -44,7 +44,10 @@ export function ChartTooltip({ active, payload, variant = 'savings' }: Props) {
             {money(d.savings)}
           </div>
           <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: 5, lineHeight: 2.1 }}>
-            <div style={{ color: COLORS.muted }}>envelope: {money(d.effectiveEnv)}/mo</div>
+            <div style={{ color: COLORS.muted }}>net budget: {money(d.effectiveEnv)}/mo</div>
+            {d.monthlyAllowance > 0 && (
+              <div style={{ color: COLORS.muted }}>− allowance: {money(d.monthlyAllowance)}/mo</div>
+            )}
             {d.debtBurden      > 0 && <div style={{ color: COLORS.red    }}>− debt: {money(d.debtBurden)}/mo</div>}
             {d.purchaseOutflow > 0 && <div style={{ color: COLORS.orange }}>− loans: {money(d.purchaseOutflow)}/mo</div>}
             {d.raiseBonus      > 0 && <div style={{ color: COLORS.accent }}>+ raise: {money(d.raiseBonus)}/mo</div>}

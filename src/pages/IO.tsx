@@ -155,6 +155,10 @@ export default function IO() {
               value={p.startSavings} onChange={e => sp({ startSavings: +e.target.value })} />
           </div>
 
+          <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 12, lineHeight: 1.6 }}>
+            Monthly allowance is discretionary spending (going out, hobbies, etc.) carved out of your envelope before what’s left flows to savings.
+          </p>
+
           {/* Numeric grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginTop: 14 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -173,7 +177,8 @@ export default function IO() {
               { id: 'io-age',     label: 'Current Age',      key: 'startAge',     step: 1,     min: 18 },
               { id: 'io-horizon', label: 'Horizon (years)',   key: 'horizonYears', step: 1,     min: 1  },
               { id: 'io-salary',  label: 'Base Salary ($)',   key: 'baseSalary',   step: 5_000, min: 0  },
-              { id: 'io-rent',    label: 'Monthly Rent ($)',  key: 'housingCost',  step: 50,    min: 0  },
+              { id: 'io-rent',       label: 'Monthly Rent ($)',       key: 'housingCost',       step: 50, min: 0 },
+              { id: 'io-allowance',  label: 'Monthly allowance ($)', key: 'monthlyAllowance', step: 25, min: 0 },
             ] as const).map(({ id, label, key, step, min }) => (
               <div key={id} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 <label htmlFor={id} style={labelStyle}>{label}</label>

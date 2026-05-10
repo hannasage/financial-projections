@@ -22,7 +22,7 @@ const makeId = () => crypto.randomUUID();
 const DEFAULT_SCENARIO: Scenario = {
   startMonthIdx: 0, startYear: 2026,
   envelope: 1_000, startSavings: 0, startAge: 30, horizonYears: 10,
-  returnMode: 'hysa', taxPct: 25, baseSalary: 60_000, housingCost: 1_200,
+  returnMode: 'hysa', taxPct: 25, baseSalary: 60_000, housingCost: 1_200, monthlyAllowance: 0,
   debts: [], purchases: [], raises: [],
   excludedDebtIds: [], excludedPurchaseIds: [], excludedRaiseIds: [],
 };
@@ -148,9 +148,10 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
     taxPct: init.taxPct,
     baseSalary: init.baseSalary,
     housingCost: init.housingCost,
+    monthlyAllowance: init.monthlyAllowance ?? 0,
     debts, cascadeDebts, purchases, raises,
     excludedDebtIds, excludedPurchaseIds, excludedRaiseIds,
-  }), [safeStartMonthIdx, safeStartYear, init.envelope, init.startSavings, init.startAge, init.horizonYears, init.returnMode, init.hysaRate, init.taxPct, init.baseSalary, init.housingCost, debts, cascadeDebts, purchases, raises, excludedDebtIds, excludedPurchaseIds, excludedRaiseIds]);
+  }), [safeStartMonthIdx, safeStartYear, init.envelope, init.startSavings, init.startAge, init.horizonYears, init.returnMode, init.hysaRate, init.taxPct, init.baseSalary, init.housingCost, init.monthlyAllowance, debts, cascadeDebts, purchases, raises, excludedDebtIds, excludedPurchaseIds, excludedRaiseIds]);
 
   const mergedScenario = useMemo(() => mergeIntoScenario(scenario, library), [scenario, library]);
   const returnRate = getReturnRate(mergedScenario);
@@ -172,7 +173,8 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
     const pm = sm + payoffMonths(p.loanAmount, p.rate, p.payment);
     return s + (0 >= sm && 0 < pm ? p.payment : 0);
   }, 0);
-  const effectiveNow = mergedScenario.envelope - mergedScenario.housingCost - nowDebtBurden - nowLoanBurden;
+  const allowance = mergedScenario.monthlyAllowance ?? 0;
+  const effectiveNow = mergedScenario.envelope - mergedScenario.housingCost - allowance - nowDebtBurden - nowLoanBurden;
 
   const purchaseMarkers = resolvedPurchases
     .filter(p => p.loanAmount > 0 && p.payment > 0)
@@ -208,6 +210,9 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
               <span>Start: <strong>{MONTHS[mergedScenario.startMonthIdx]} {mergedScenario.startYear}</strong></span>
               <span>Envelope: <strong>{money(mergedScenario.envelope)}/mo</strong></span>
               <span style={{ color: COLORS.muted }}>− housing: {money(mergedScenario.housingCost)}/mo</span>
+              {allowance > 0 && (
+                <span style={{ color: COLORS.muted }}>− allowance: {money(allowance)}/mo</span>
+              )}
               <span>Horizon: <strong>{mergedScenario.horizonYears}y</strong></span>
               {nowDebtBurden > 0 && <span style={{ color: COLORS.red }}>− debt: {money(nowDebtBurden)}/mo</span>}
               {nowLoanBurden > 0 && <span style={{ color: COLORS.orange }}>− loans: {money(nowLoanBurden)}/mo</span>}

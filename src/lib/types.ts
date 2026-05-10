@@ -14,6 +14,8 @@ export interface Scenario {
   taxPct:              number;
   baseSalary:   number;
   housingCost:  number;
+  /** Misc monthly spending drawn from envelope (discretionary allowance, etc.) */
+  monthlyAllowance: number;
   debts:        Debt[];
   purchases:    Purchase[];
   raises:       Raise[];
@@ -75,6 +77,8 @@ export interface SimRow {
   raiseBonus:      number;
   rentRelief:      number;
   effectiveEnv:    number;
+  /** Monthly allowance deducted from envelope (same each month; for tooltips) */
+  monthlyAllowance: number;
   activePurchases: string[];
 }
 
