@@ -4,8 +4,9 @@ import { CSS } from '@dnd-kit/utilities';
 import { useColors } from '../../stores/themeStore';
 import { useLibraryStore } from '../../stores/libraryStore';
 import { simulate } from '../../lib/simulate';
-import { money, getReturnRate } from '../../lib/finance';
+import { money, getReturnRate, payoffLabel } from '../../lib/finance';
 import { mergeIntoScenario } from '../../lib/resolveItems';
+import { MONTHS } from '../../lib/constants';
 import type { Plan } from '../../lib/types';
 
 interface PlanCardProps {
@@ -18,7 +19,8 @@ interface PlanCardProps {
 export function PlanCard({ plan, onEdit, onDelete, onDuplicate }: PlanCardProps) {
   const COLORS  = useColors();
   const library = useLibraryStore();
-  const rows    = simulate(mergeIntoScenario(plan.scenario, library), getReturnRate(plan.scenario));
+  const merged  = mergeIntoScenario(plan.scenario, library);
+  const rows    = simulate(merged, getReturnRate(plan.scenario));
   const endM    = plan.scenario.horizonYears * 12;
   const midM    = Math.round(endM / 2);
   const start   = rows[0]?.savings ?? 0;
@@ -28,6 +30,18 @@ export function PlanCard({ plan, onEdit, onDelete, onDuplicate }: PlanCardProps)
     plan.scenario.returnMode === 'none'   ? '0% cash' :
     plan.scenario.returnMode === 'hysa'   ? `${plan.scenario.hysaRate ?? 4.5}% HYSA` :
                                             '7% invested';
+
+  const payoffItems = [
+    ...merged.debts.map(d => ({
+      label: d.label || 'Debt',
+      date:  d.payoffYear ? `${MONTHS[d.payoffMonthIdx ?? 0]} ${d.payoffYear}` : '—',
+    })),
+    ...merged.purchases.map(p => ({
+      label: p.label || (p.type === 'house' ? 'Mortgage' : 'Loan'),
+      date:  payoffLabel(p),
+    })),
+  ];
+
   const [confirming, setConfirming] = useState(false);
 
   const {
@@ -118,6 +132,19 @@ export function PlanCard({ plan, onEdit, onDelete, onDuplicate }: PlanCardProps)
             {growthLabel.toUpperCase()}
           </span>
         </div>
+
+        {/* Payoff dates */}
+        {payoffItems.length > 0 && (
+          <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ fontSize: 10, color: COLORS.muted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 1 }}>Payoff Dates</div>
+            {payoffItems.map((item, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, fontSize: 11 }}>
+                <span style={{ color: COLORS.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{item.label}</span>
+                <span style={{ color: COLORS.text, whiteSpace: 'nowrap', fontWeight: 600 }}>{item.date}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Actions */}
         <div style={{ display: 'flex', gap: 6, marginTop: 'auto', flexWrap: 'wrap' }}>
