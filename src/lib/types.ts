@@ -11,6 +11,8 @@ export interface Scenario {
   excludedDebtIds?:     string[]; // library item IDs excluded from this scenario
   excludedPurchaseIds?: string[];
   excludedRaiseIds?:    string[];
+  excludedInvestmentIds?:     string[];
+  excludedRecurringChargeIds?: string[];
   taxPct:              number;
   baseSalary:   number;
   housingCost:  number;
@@ -19,6 +21,10 @@ export interface Scenario {
   debts:        Debt[];
   purchases:    Purchase[];
   raises:       Raise[];
+  /** Brokerage / long-term buckets: separate return % and monthly buys from envelope. */
+  investments?: Investment[];
+  /** Subscriptions and other fixed monthly draws (in addition to allowance). */
+  recurringCharges?: RecurringCharge[];
 }
 
 export interface DebtAdjustment {
@@ -63,6 +69,21 @@ export interface Raise {
   baseSalary: number;
 }
 
+export interface Investment {
+  id:                  string;
+  label:               string;
+  initialAmount:       number;
+  /** Annual return % (e.g. 7). Compounded monthly. */
+  annualReturnPct:     number;
+  monthlyContribution: number;
+}
+
+export interface RecurringCharge {
+  id:     string;
+  label:  string;
+  amount: number;
+}
+
 export interface SimRow {
   m:               number;
   yr:              number;
@@ -72,6 +93,16 @@ export interface SimRow {
   ageFloor:        number;
   savings:         number;
   savingsInflow:   number;
+  /** Separate investment / brokerage balances (each account’s own return + contributions). */
+  investments:     number;
+  /** Total contributed to investments this month (from envelope, before growth). */
+  investmentContributions: number;
+  /** Sum of itemized recurring charges / month. */
+  recurringTotal:  number;
+  /** Savings + investments (liquid assets for charts). */
+  liquidTotal:     number;
+  /** Cash routed to savings + investments this month (after debts & loans). */
+  liquidInflow:    number;
   debtBurden:      number;
   /** Estimated total debt still owed (amortized balances + linear est. for payment-only debts) */
   debtOutstanding: number;

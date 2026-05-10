@@ -8,6 +8,8 @@ import { LOCAL_MODE } from '../lib/mode';
 import { DebtItem } from '../components/plan/DebtItem';
 import { PurchaseItem } from '../components/plan/PurchaseItem';
 import { RaiseItem } from '../components/plan/RaiseItem';
+import { InvestmentItem } from '../components/plan/InvestmentItem';
+import { RecurringChargeItem } from '../components/plan/RecurringChargeItem';
 import { ThemeSelector } from '../components/shared/ThemeSelector';
 
 export default function IO() {
@@ -71,6 +73,16 @@ export default function IO() {
     });
   };
 
+  const handleAddRecurring = () => {
+    library.addRecurringCharge({ label: '', amount: 15 });
+  };
+
+  const handleAddInvestment = () => {
+    library.addInvestment({
+      label: '', initialAmount: 0, annualReturnPct: 7, monthlyContribution: 200,
+    });
+  };
+
   return (
     <div style={{
       background: COLORS.bg, minHeight: '100vh', color: COLORS.text,
@@ -119,7 +131,7 @@ export default function IO() {
             input · output
           </div>
           <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 10, maxWidth: 480, lineHeight: 1.7 }}>
-            Define your debts, purchases, and raises once — then include them in any scenario.
+            Define debts, recurring bills, purchases, investments, and raises once — then include them in any scenario.
           </p>
         </div>
 
@@ -240,6 +252,30 @@ export default function IO() {
           ))}
         </section>
 
+        {/* Recurring bills */}
+        <section className="sec" aria-label="Library recurring charges">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+            <span style={labelStyle}>📎 Recurring bills</span>
+            <button type="button" onClick={handleAddRecurring} style={addBtnStyle}>+ Add line item</button>
+          </div>
+          <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: library.recurringCharges.length ? 8 : 0 }}>
+            Subscriptions and other fixed monthly costs. Deducted from your envelope with rent and allowance (itemize here instead of lumping into allowance if you prefer).
+          </p>
+          {library.recurringCharges.length === 0 && (
+            <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 8, fontStyle: 'italic' }}>
+              None yet.
+            </p>
+          )}
+          {library.recurringCharges.map(c => (
+            <RecurringChargeItem
+              key={c.id}
+              c={c}
+              onChange={patch => library.updateRecurringCharge(c.id, patch)}
+              onRemove={() => library.removeRecurringCharge(c.id)}
+            />
+          ))}
+        </section>
+
         {/* Major Purchases */}
         <section className="sec" aria-label="Library purchases">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
@@ -263,6 +299,30 @@ export default function IO() {
               housingCost={library.profile.housingCost}
               onChange={patch => library.updatePurchase(pur.id, patch)}
               onRemove={() => library.removePurchase(pur.id)}
+            />
+          ))}
+        </section>
+
+        {/* Investments */}
+        <section className="sec" aria-label="Library investments">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+            <span style={labelStyle}>📊 Investments</span>
+            <button type="button" onClick={handleAddInvestment} style={addBtnStyle}>+ Add account</button>
+          </div>
+          <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: library.investments.length ? 8 : 0 }}>
+            Separate from starting savings: each bucket has its own starting balance, average annual return, and monthly contribution. Counts toward liquid assets and net worth on charts.
+          </p>
+          {library.investments.length === 0 && (
+            <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 8, fontStyle: 'italic' }}>
+              None yet.
+            </p>
+          )}
+          {library.investments.map(inv => (
+            <InvestmentItem
+              key={inv.id}
+              i={inv}
+              onChange={patch => library.updateInvestment(inv.id, patch)}
+              onRemove={() => library.removeInvestment(inv.id)}
             />
           ))}
         </section>

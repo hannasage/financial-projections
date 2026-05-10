@@ -32,12 +32,13 @@ function nonPurchaseDebtOutstandingAtMonthStart(
 
 function preStartNetWorthFloat(
   startSavings: number,
+  investmentInitialSum: number,
   purchaseMeta: Array<{ startM: number; initialPrincipal: number; marketValue?: number }>,
   debts: Debt[],
   startYear: number,
   startMonthIdx: number,
 ): number {
-  let nw = startSavings;
+  let nw = startSavings + investmentInitialSum;
   for (const p of purchaseMeta) {
     const mv = p.marketValue;
     if (mv != null && mv > 0 && p.startM < 0) nw += mv;
@@ -57,6 +58,8 @@ export function simulate(
     envelope, startSavings, startAge, startYear, startMonthIdx,
     debts, purchases, raises, taxPct, horizonYears, housingCost, monthlyAllowance,
     cascadeDebts,
+    investments: investmentList = [],
+    recurringCharges: recurringList = [],
   } = scenario;
   const today = getTodayStartDate();
   const safeStartYear = Number.isFinite(startYear) ? startYear : today.startYear;
@@ -134,8 +137,14 @@ export function simulate(
   /** End-of-month remaining principal per purchase loan (for debt paydown chart) */
   const purchaseLoanDyn: number[] = purchaseMeta.map(() => 0);
 
+  const recurringTotal = recurringList.reduce((s, c) => s + Math.max(0, c.amount), 0);
+  const invBalances = investmentList.map(i => Math.max(0, i.initialAmount ?? 0));
+  const invRMonthly = investmentList.map(i => Math.max(0, i.annualReturnPct ?? 0) / 100 / 12);
+  const invContrib  = investmentList.map(i => Math.max(0, i.monthlyContribution ?? 0));
+  const investmentInitialSum = invBalances.reduce((a, b) => a + b, 0);
+
   let prevNWForChange = preStartNetWorthFloat(
-    startSavings, purchaseMeta, debts, safeStartYear, safeStartMonthIdx,
+    startSavings, investmentInitialSum, purchaseMeta, debts, safeStartYear, safeStartMonthIdx,
   );
 
   for (let m = 0; m <= totalMonths; m++) {
@@ -234,14 +243,21 @@ export function simulate(
     if (downThisMonth > 0) savings -= downThisMonth;
 
     const allowance = monthlyAllowance ?? 0;
-    // Housing + allowance come out of envelope; buying a house offsets rent via rentRelief.
-    const effectiveEnv  = envelope + raiseBonus - housingCost - allowance + rentRelief;
-    const savingsInflow = effectiveEnv - debtBurden - purchaseOutflow;
+    const invContribSum = invContrib.reduce((a, b) => a + b, 0);
+    // Housing + allowance + itemized recurring come out of envelope; house offsets rent via rentRelief.
+    const effectiveEnv  = envelope + raiseBonus - housingCost - allowance - recurringTotal + rentRelief;
+    const savingsInflow = effectiveEnv - debtBurden - purchaseOutflow - invContribSum;
 
     savings =
       returnRate > 0
         ? savings * (1 + returnRate / 12) + savingsInflow
         : savings + savingsInflow;
+
+    let investmentBalance = 0;
+    for (let i = 0; i < invBalances.length; i++) {
+      invBalances[i] = invBalances[i] * (1 + invRMonthly[i]) + invContrib[i];
+      investmentBalance += invBalances[i];
+    }
 
     let debtOutstanding = 0;
     if (debtTrackers && debtTrackers.length > 0) {
@@ -288,7 +304,9 @@ export function simulate(
       const mv = p.marketValue;
       if (mv != null && mv > 0 && m >= p.startM) purchaseAssetMV += mv;
     }
-    const rawNetWorth    = savings + purchaseAssetMV - debtOutstanding;
+    const liquidTotal   = savings + investmentBalance;
+    const liquidInflow  = savingsInflow + invContribSum;
+    const rawNetWorth    = savings + investmentBalance + purchaseAssetMV - debtOutstanding;
     const netWorth       = Math.round(rawNetWorth);
     const netWorthChange = Math.round(rawNetWorth - prevNWForChange);
     prevNWForChange      = rawNetWorth;
@@ -301,6 +319,11 @@ export function simulate(
       ageFloor:        Math.floor(age),
       savings:         Math.round(savings),
       savingsInflow:   Math.round(savingsInflow),
+      investments:     Math.round(investmentBalance),
+      investmentContributions: Math.round(invContribSum),
+      recurringTotal:  Math.round(recurringTotal),
+      liquidTotal:     Math.round(liquidTotal),
+      liquidInflow:    Math.round(liquidInflow),
       debtBurden:      Math.round(debtBurden),
       debtOutstanding: Math.round(debtOutstanding),
       purchaseOutflow: Math.round(purchaseOutflow),

@@ -88,7 +88,9 @@ export default function PlanNew() {
         initialScenario={{
           ...profile,
           debts: [], purchases: [], raises: [],
+          investments: [], recurringCharges: [],
           excludedDebtIds: [], excludedPurchaseIds: [], excludedRaiseIds: [],
+          excludedInvestmentIds: [], excludedRecurringChargeIds: [],
         }}
         color={color}
         onSave={handleSave}

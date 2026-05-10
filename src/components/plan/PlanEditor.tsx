@@ -15,7 +15,9 @@ import { ChartTooltip } from './ChartTooltip';
 import { DebtItem } from './DebtItem';
 import { PurchaseItem } from './PurchaseItem';
 import { RaiseItem } from './RaiseItem';
-import type { Scenario, Debt, Purchase, Raise } from '../../lib/types';
+import { InvestmentItem } from './InvestmentItem';
+import { RecurringChargeItem } from './RecurringChargeItem';
+import type { Scenario, Debt, Purchase, Raise, Investment, RecurringCharge } from '../../lib/types';
 
 const makeId = () => crypto.randomUUID();
 
@@ -24,7 +26,9 @@ const DEFAULT_SCENARIO: Scenario = {
   envelope: 1_000, startSavings: 0, startAge: 30, horizonYears: 10,
   returnMode: 'hysa', taxPct: 25, baseSalary: 60_000, housingCost: 1_200, monthlyAllowance: 0,
   debts: [], purchases: [], raises: [],
+  investments: [], recurringCharges: [],
   excludedDebtIds: [], excludedPurchaseIds: [], excludedRaiseIds: [],
+  excludedInvestmentIds: [], excludedRecurringChargeIds: [],
 };
 
 interface SectionHeadProps {
@@ -98,23 +102,45 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
   const [cascadeDebts,        setCascadeDebts]        = useState(init.cascadeDebts ?? false);
   const [purchases,           setPurchases]           = useState<Purchase[]>(init.purchases);
   const [raises,              setRaises]              = useState<Raise[]>(init.raises);
+  const [investments,         setInvestments]         = useState<Investment[]>(init.investments ?? []);
+  const [recurringCharges,    setRecurringCharges]    = useState<RecurringCharge[]>(init.recurringCharges ?? []);
   const [excludedDebtIds,     setExcludedDebtIds]     = useState<string[]>(init.excludedDebtIds     ?? []);
   const [excludedPurchaseIds, setExcludedPurchaseIds] = useState<string[]>(init.excludedPurchaseIds ?? []);
   const [excludedRaiseIds,    setExcludedRaiseIds]    = useState<string[]>(init.excludedRaiseIds    ?? []);
+  const [excludedInvestmentIds, setExcludedInvestmentIds] = useState<string[]>(init.excludedInvestmentIds ?? []);
+  const [excludedRecurringChargeIds, setExcludedRecurringChargeIds] = useState<string[]>(init.excludedRecurringChargeIds ?? []);
 
   const library = useLibraryStore();
 
   const toggleDebt     = useCallback((id: string) => setExcludedDebtIds(ids     => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]), []);
   const togglePurchase = useCallback((id: string) => setExcludedPurchaseIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]), []);
   const toggleRaise    = useCallback((id: string) => setExcludedRaiseIds(ids    => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]), []);
+  const toggleInvestment = useCallback((id: string) => setExcludedInvestmentIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]), []);
+  const toggleRecurringCharge = useCallback((id: string) => setExcludedRecurringChargeIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]), []);
 
   // Fork: copy a library item as a scenario-specific custom item, then exclude the library version.
   const forkDebt     = useCallback((d: Debt)     => { setDebts(ds => [...ds, { ...d, id: makeId() }]);     setExcludedDebtIds(ids     => ids.includes(d.id) ? ids : [...ids, d.id]); }, []);
   const forkPurchase = useCallback((p: Purchase) => { setPurchases(ps => [...ps, { ...p, id: makeId() }]); setExcludedPurchaseIds(ids => ids.includes(p.id) ? ids : [...ids, p.id]); }, []);
   const forkRaise    = useCallback((r: Raise)    => { setRaises(rs => [...rs, { ...r, id: makeId() }]);     setExcludedRaiseIds(ids    => ids.includes(r.id) ? ids : [...ids, r.id]); }, []);
+  const forkInvestment = useCallback((i: Investment) => {
+    setInvestments(xs => [...xs, { ...i, id: makeId() }]);
+    setExcludedInvestmentIds(ids => ids.includes(i.id) ? ids : [...ids, i.id]);
+  }, []);
+  const forkRecurringCharge = useCallback((c: RecurringCharge) => {
+    setRecurringCharges(xs => [...xs, { ...c, id: makeId() }]);
+    setExcludedRecurringChargeIds(ids => ids.includes(c.id) ? ids : [...ids, c.id]);
+  }, []);
 
   const resolvedDebts     = useMemo(() => [...library.debts.filter(d => !excludedDebtIds.includes(d.id)),         ...debts],     [library.debts,     excludedDebtIds,     debts]);
   const resolvedPurchases = useMemo(() => [...library.purchases.filter(p => !excludedPurchaseIds.includes(p.id)), ...purchases], [library.purchases, excludedPurchaseIds, purchases]);
+  const resolvedInvestments = useMemo(
+    () => [...library.investments.filter(i => !excludedInvestmentIds.includes(i.id)), ...investments],
+    [library.investments, excludedInvestmentIds, investments],
+  );
+  const resolvedRecurringCharges = useMemo(
+    () => [...library.recurringCharges.filter(c => !excludedRecurringChargeIds.includes(c.id)), ...recurringCharges],
+    [library.recurringCharges, excludedRecurringChargeIds, recurringCharges],
+  );
 
   const addDebt    = () => setDebts(d => [...d, { id: makeId(), label: '', payment: 200, payoffMonthIdx: safeStartMonthIdx, payoffYear: safeStartYear + 1 }]);
   const changeDebt = useCallback((id: string, patch: Partial<Debt>) => setDebts(d => d.map(x => x.id === id ? { ...x, ...patch } : x)), []);
@@ -136,6 +162,16 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
   const changeRaise = useCallback((id: string, patch: Partial<Raise>) => setRaises(r => r.map(x => x.id === id ? { ...x, ...patch } : x)), []);
   const rmRaise     = useCallback((id: string) => setRaises(r => r.filter(x => x.id !== id)), []);
 
+  const addInvestment = () => setInvestments(xs => [...xs, {
+    id: makeId(), label: '', initialAmount: 0, annualReturnPct: 7, monthlyContribution: 0,
+  }]);
+  const changeInvestment = useCallback((id: string, patch: Partial<Investment>) => setInvestments(xs => xs.map(x => x.id === id ? { ...x, ...patch } : x)), []);
+  const rmInvestment     = useCallback((id: string) => setInvestments(xs => xs.filter(x => x.id !== id)), []);
+
+  const addRecurringCharge = () => setRecurringCharges(xs => [...xs, { id: makeId(), label: '', amount: 10 }]);
+  const changeRecurringCharge = useCallback((id: string, patch: Partial<RecurringCharge>) => setRecurringCharges(xs => xs.map(x => x.id === id ? { ...x, ...patch } : x)), []);
+  const rmRecurringCharge     = useCallback((id: string) => setRecurringCharges(xs => xs.filter(x => x.id !== id)), []);
+
   const scenario: Scenario = useMemo(() => ({
     startMonthIdx: safeStartMonthIdx,
     startYear: safeStartYear,
@@ -150,8 +186,10 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
     housingCost: init.housingCost,
     monthlyAllowance: init.monthlyAllowance ?? 0,
     debts, cascadeDebts, purchases, raises,
+    investments, recurringCharges,
     excludedDebtIds, excludedPurchaseIds, excludedRaiseIds,
-  }), [safeStartMonthIdx, safeStartYear, init.envelope, init.startSavings, init.startAge, init.horizonYears, init.returnMode, init.hysaRate, init.taxPct, init.baseSalary, init.housingCost, init.monthlyAllowance, debts, cascadeDebts, purchases, raises, excludedDebtIds, excludedPurchaseIds, excludedRaiseIds]);
+    excludedInvestmentIds, excludedRecurringChargeIds,
+  }), [safeStartMonthIdx, safeStartYear, init.envelope, init.startSavings, init.startAge, init.horizonYears, init.returnMode, init.hysaRate, init.taxPct, init.baseSalary, init.housingCost, init.monthlyAllowance, debts, cascadeDebts, purchases, raises, investments, recurringCharges, excludedDebtIds, excludedPurchaseIds, excludedRaiseIds, excludedInvestmentIds, excludedRecurringChargeIds]);
 
   const mergedScenario = useMemo(() => mergeIntoScenario(scenario, library), [scenario, library]);
   const returnRate = getReturnRate(mergedScenario);
@@ -174,7 +212,9 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
     return s + (0 >= sm && 0 < pm ? p.payment : 0);
   }, 0);
   const allowance = mergedScenario.monthlyAllowance ?? 0;
-  const effectiveNow = mergedScenario.envelope - mergedScenario.housingCost - allowance - nowDebtBurden - nowLoanBurden;
+  const nowRecurring = resolvedRecurringCharges.reduce((s, c) => s + Math.max(0, c.amount), 0);
+  const nowInvContrib = resolvedInvestments.reduce((s, i) => s + Math.max(0, i.monthlyContribution), 0);
+  const effectiveNow = mergedScenario.envelope - mergedScenario.housingCost - allowance - nowRecurring - nowDebtBurden - nowLoanBurden - nowInvContrib;
 
   const purchaseMarkers = resolvedPurchases
     .filter(p => p.loanAmount > 0 && p.payment > 0)
@@ -214,8 +254,10 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
                 <span style={{ color: COLORS.muted }}>− allowance: {money(allowance)}/mo</span>
               )}
               <span>Horizon: <strong>{mergedScenario.horizonYears}y</strong></span>
+              {nowRecurring > 0 && <span style={{ color: COLORS.muted }}>− recurring: {money(nowRecurring)}/mo</span>}
               {nowDebtBurden > 0 && <span style={{ color: COLORS.red }}>− debt: {money(nowDebtBurden)}/mo</span>}
               {nowLoanBurden > 0 && <span style={{ color: COLORS.orange }}>− loans: {money(nowLoanBurden)}/mo</span>}
+              {nowInvContrib > 0 && <span style={{ color: COLORS.accent }}>− invest: {money(nowInvContrib)}/mo</span>}
               <span style={{ color: accent }}>→ {money(effectiveNow)}/mo to savings now</span>
             </div>
           </div>
@@ -279,6 +321,58 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
           ))}
         </section>
 
+        {/* ── RECURRING BILLS ── */}
+        <section className="sec" aria-label="Recurring bills">
+          <SectionHead label="📎 Recurring bills" onAdd={addRecurringCharge} addLabel="+ Custom" addBtnStyle={addBtnStyle} labelStyle={S.label} />
+          {library.recurringCharges.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <span style={{ ...S.label, display: 'block', marginBottom: 6 }}>From I/O</span>
+              {library.recurringCharges.map(c => {
+                const off = excludedRecurringChargeIds.includes(c.id);
+                return (
+                  <div key={c.id} role="button" tabIndex={0}
+                    onClick={() => toggleRecurringCharge(c.id)}
+                    onKeyDown={e => e.key === 'Enter' && toggleRecurringCharge(c.id)}
+                    aria-pressed={!off}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '9px 12px', borderRadius: 6, cursor: 'pointer',
+                      border: `1px solid ${off ? COLORS.border : COLORS.muted}50`,
+                      background: off ? 'transparent' : `${COLORS.muted}12`,
+                      marginTop: 6, opacity: off ? 0.5 : 1, transition: 'all 0.12s',
+                    }}>
+                    <span style={{ color: off ? COLORS.muted : COLORS.text, fontSize: 13 }}>{off ? '○' : '●'}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 500, color: off ? COLORS.muted : COLORS.text }}>{c.label || 'Unnamed'}</div>
+                      <div style={{ fontSize: 10, color: COLORS.muted }}>−{money(c.amount)}/mo</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); forkRecurringCharge(c); }}
+                      title="Copy to scenario as a custom item"
+                      style={{
+                        padding: '4px 8px', fontSize: 10, borderRadius: 4,
+                        border: `1px solid ${COLORS.border}`,
+                        background: 'transparent', color: COLORS.muted,
+                        fontFamily: "'IBM Plex Mono', monospace",
+                        cursor: 'pointer', flexShrink: 0,
+                      }}
+                    >⎘ fork</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {library.recurringCharges.length === 0 && recurringCharges.length === 0 && (
+            <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 4, fontStyle: 'italic' }}>
+              Add recurring bills in <a href="/io" style={{ color: COLORS.accent, textDecoration: 'none' }}>I/O</a> or use + Custom for scenario-only lines.
+            </p>
+          )}
+          {recurringCharges.map(c => (
+            <RecurringChargeItem key={c.id} c={c} onChange={p => changeRecurringCharge(c.id, p)} onRemove={() => rmRecurringCharge(c.id)} />
+          ))}
+        </section>
+
         {/* ── PURCHASES ── */}
         <section className="sec" aria-label="Major purchases">
           <SectionHead label="🛒 Major Purchases" onAdd={addPurchase} addLabel="+ Custom" addBtnStyle={addBtnStyle} labelStyle={S.label} />
@@ -328,6 +422,60 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
           {purchases.map(p => (
             <PurchaseItem key={p.id} p={p} startYear={mergedScenario.startYear} startMonthIdx={mergedScenario.startMonthIdx} housingCost={mergedScenario.housingCost}
               onChange={patch => changePurchase(p.id, patch)} onRemove={() => rmPurchase(p.id)} />
+          ))}
+        </section>
+
+        {/* ── INVESTMENTS ── */}
+        <section className="sec" aria-label="Investments">
+          <SectionHead label="📊 Investments" onAdd={addInvestment} addLabel="+ Custom" addBtnStyle={addBtnStyle} labelStyle={S.label} />
+          {library.investments.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <span style={{ ...S.label, display: 'block', marginBottom: 6 }}>From I/O</span>
+              {library.investments.map(inv => {
+                const off = excludedInvestmentIds.includes(inv.id);
+                return (
+                  <div key={inv.id} role="button" tabIndex={0}
+                    onClick={() => toggleInvestment(inv.id)}
+                    onKeyDown={e => e.key === 'Enter' && toggleInvestment(inv.id)}
+                    aria-pressed={!off}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '9px 12px', borderRadius: 6, cursor: 'pointer',
+                      border: `1px solid ${off ? COLORS.border : accent}40`,
+                      background: off ? 'transparent' : `${accent}08`,
+                      marginTop: 6, opacity: off ? 0.5 : 1, transition: 'all 0.12s',
+                    }}>
+                    <span style={{ color: off ? COLORS.muted : accent, fontSize: 13 }}>{off ? '○' : '●'}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 500, color: off ? COLORS.muted : COLORS.text }}>{inv.label || 'Unnamed'}</div>
+                      <div style={{ fontSize: 10, color: COLORS.muted }}>
+                        {money(inv.initialAmount)} start · {inv.annualReturnPct}% · +{money(inv.monthlyContribution)}/mo
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); forkInvestment(inv); }}
+                      title="Copy to scenario as a custom item"
+                      style={{
+                        padding: '4px 8px', fontSize: 10, borderRadius: 4,
+                        border: `1px solid ${COLORS.border}`,
+                        background: 'transparent', color: COLORS.muted,
+                        fontFamily: "'IBM Plex Mono', monospace",
+                        cursor: 'pointer', flexShrink: 0,
+                      }}
+                    >⎘ fork</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {library.investments.length === 0 && investments.length === 0 && (
+            <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 4, fontStyle: 'italic' }}>
+              Add investment accounts in <a href="/io" style={{ color: COLORS.accent, textDecoration: 'none' }}>I/O</a> or use + Custom for scenario-only buckets.
+            </p>
+          )}
+          {investments.map(inv => (
+            <InvestmentItem key={inv.id} i={inv} onChange={p => changeInvestment(inv.id, p)} onRemove={() => rmInvestment(inv.id)} />
           ))}
         </section>
 
@@ -384,8 +532,9 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
         </section>
 
         {/* ── MILESTONES ── */}
-        <section className="sec" aria-label="Savings milestones">
+        <section className="sec" aria-label="Liquid asset milestones">
           <h2 style={{ ...S.label, marginBottom: 12 }}>Milestones</h2>
+          <p style={{ fontSize: 10, color: COLORS.muted, marginBottom: 10 }}>Cash savings plus tracked investment balances.</p>
           <div className="mg">
             {milestones.map(s => (
               <div key={s.m} style={{
@@ -396,7 +545,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
               }}>
                 <div style={{ ...S.label, marginBottom: 6 }}>Age {Math.floor(mergedScenario.startAge + s.m / 12)}</div>
                 <div className="syne" style={{ fontSize: 22, fontWeight: 800, color: s.hi ? accent : COLORS.text, lineHeight: 1, marginBottom: 5 }}>
-                  {money(snap(s.m)?.savings ?? 0)}
+                  {money(snap(s.m)?.liquidTotal ?? 0)}
                 </div>
                 <div style={{ fontSize: 11, color: COLORS.muted }}>{s.label}</div>
                 {s.hi && (
@@ -410,9 +559,9 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
         </section>
 
         {/* ── CHART ── */}
-        <section className="sec" aria-label="Savings trajectory chart">
-          <h2 style={{ ...S.label, marginBottom: 8 }}>Savings Trajectory</h2>
-          <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: 14 }}>🛒 purchase date · ✓ loan paid off</p>
+        <section className="sec" aria-label="Liquid assets trajectory chart">
+          <h2 style={{ ...S.label, marginBottom: 8 }}>Savings &amp; investments</h2>
+          <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: 14 }}>Envelope-fed savings plus separate investment buckets. 🛒 purchase · ✓ loan paid</p>
           <ResponsiveContainer width="100%" height={230}>
             <AreaChart data={chart} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
               <defs>
@@ -447,7 +596,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
                   label={{ value: '✓', fill: COLORS.blue, fontSize: 10, position: 'top' }} />
               ))}
               <Area
-                type="monotone" dataKey="savings"
+                type="monotone" dataKey="liquidTotal"
                 stroke={accent} strokeWidth={2}
                 fill="url(#chartGrad)" dot={false}
                 activeDot={{ r: 4, fill: accent, strokeWidth: 0 }}
@@ -490,6 +639,53 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
           </ResponsiveContainer>
         </section>
 
+        <section className="sec" aria-label="Net worth chart">
+          <h2 style={{ ...S.label, marginBottom: 8 }}>Net Worth</h2>
+          <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: 14 }}>
+            Savings plus optional purchase market values minus all debts. Matches the dashboard net worth view.
+          </p>
+          <ResponsiveContainer width="100%" height={190}>
+            <AreaChart data={chart} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={COLORS.blue} stopOpacity={0.22} />
+                  <stop offset="95%" stopColor={COLORS.blue} stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="1 6" stroke={COLORS.faint} vertical={false} />
+              <XAxis
+                dataKey="decimalYr" type="number"
+                domain={[chartMinYr, chartStart + chartHorizon]}
+                tickFormatter={v => (v % 1 < 0.05) ? String(Math.round(v)) : ''}
+                tick={{ fill: COLORS.muted, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
+                axisLine={false} tickLine={false}
+              />
+              <YAxis
+                tickFormatter={shortK}
+                tick={{ fill: COLORS.muted, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
+                axisLine={false} tickLine={false} width={44}
+              />
+              <Tooltip content={<ChartTooltip variant="netWorth" />} />
+              {purchaseMarkers.map((m, i) => (
+                <ReferenceLine key={`nw-buy-${i}`} x={m.buyDecimalYr}
+                  stroke={COLORS.orange} strokeDasharray="3 3" strokeWidth={1}
+                  label={{ value: '🛒', fill: COLORS.orange, fontSize: 10, position: 'top' }} />
+              ))}
+              {purchaseMarkers.filter(m => m.withinHorizon).map((m, i) => (
+                <ReferenceLine key={`nw-paid-${i}`} x={m.paidDecimalYr}
+                  stroke={COLORS.blue} strokeDasharray="3 3" strokeWidth={1}
+                  label={{ value: '✓', fill: COLORS.blue, fontSize: 10, position: 'top' }} />
+              ))}
+              <Area
+                type="monotone" dataKey="netWorth"
+                stroke={COLORS.blue} strokeWidth={2}
+                fill="url(#nwGrad)" dot={false}
+                activeDot={{ r: 4, fill: COLORS.blue, strokeWidth: 0 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </section>
+
         {/* ── YEAR TABLE ── */}
         <section className="sec" aria-label="Year-by-year breakdown">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
@@ -510,8 +706,9 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
                   {[
                     ['Age',       'Your age'],
                     ['Year',      'Calendar year'],
-                    ['Balance',   'Total savings balance'],
-                    ['Saving/mo', 'Net amount saved per month'],
+                    ['Savings',   'Cash / HYSA balance'],
+                    ['Invest',    'Investment account balances'],
+                    ['To liquid', 'Cash to savings + investments after debts & loans'],
                     ['Debt −',    'Monthly debt payments'],
                     ['Loans −',   'Monthly loan payments'],
                     ['Active',    'Active purchase loans'],
@@ -534,7 +731,8 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
                     <td style={{ padding: '8px 10px', color: accent, fontWeight: 500 }}>{d.ageFloor}</td>
                     <td style={{ padding: '8px 10px', color: COLORS.muted }}>{d.yr}</td>
                     <td style={{ padding: '8px 10px', fontWeight: 500 }}>{money(d.savings)}</td>
-                    <td style={{ padding: '8px 10px', color: COLORS.dim }}>{money(d.savingsInflow)}/mo</td>
+                    <td style={{ padding: '8px 10px', fontWeight: 500, color: COLORS.accent }}>{money(d.investments)}</td>
+                    <td style={{ padding: '8px 10px', color: COLORS.dim }}>{money(d.liquidInflow)}/mo</td>
                     <td style={{ padding: '8px 10px', color: d.debtBurden > 0 ? COLORS.red : COLORS.muted }}>
                       {d.debtBurden > 0 ? `−${money(d.debtBurden)}` : '—'}
                     </td>

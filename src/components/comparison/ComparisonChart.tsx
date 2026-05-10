@@ -93,7 +93,7 @@ export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props)
         const sim   = simulations[plan.id] ?? [];
         const match = sim[row.m];
         point[plan.title || plan.id] = tab === 'liquidity'
-          ? (match?.savings ?? 0)
+          ? (match?.liquidTotal ?? 0)
           : tab === 'debt'
             ? (match?.debtOutstanding ?? 0)
             : (match?.netWorth ?? 0);

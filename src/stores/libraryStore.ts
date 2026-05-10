@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-import type { Debt, Purchase, Raise, Scenario } from '../lib/types';
+import type { Debt, Purchase, Raise, Scenario, Investment, RecurringCharge } from '../lib/types';
 import { getTodayStartDate } from '../lib/constants';
 
 export type Profile = Pick<Scenario,
@@ -39,6 +39,8 @@ interface LibraryState {
   debts:      Debt[];
   purchases:  Purchase[];
   raises:     Raise[];
+  investments:     Investment[];
+  recurringCharges: RecurringCharge[];
   addDebt:        (d: Omit<Debt, 'id'>) => void;
   updateDebt:     (id: string, patch: Partial<Debt>) => void;
   removeDebt:     (id: string) => void;
@@ -48,6 +50,12 @@ interface LibraryState {
   addRaise:       (r: Omit<Raise, 'id'>) => void;
   updateRaise:    (id: string, patch: Partial<Raise>) => void;
   removeRaise:    (id: string) => void;
+  addInvestment:       (i: Omit<Investment, 'id'>) => void;
+  updateInvestment:    (id: string, patch: Partial<Investment>) => void;
+  removeInvestment:    (id: string) => void;
+  addRecurringCharge:  (c: Omit<RecurringCharge, 'id'>) => void;
+  updateRecurringCharge: (id: string, patch: Partial<RecurringCharge>) => void;
+  removeRecurringCharge: (id: string) => void;
 }
 
 export const useLibraryStore = create<LibraryState>()(
@@ -60,6 +68,8 @@ export const useLibraryStore = create<LibraryState>()(
         debts:     [],
         purchases: [],
         raises:    [],
+        investments:     [],
+        recurringCharges: [],
 
         addDebt: (d) =>
           set(s => ({ debts: [...s.debts, { ...d, id: crypto.randomUUID() }] })),
@@ -81,6 +91,20 @@ export const useLibraryStore = create<LibraryState>()(
           set(s => ({ raises: s.raises.map(r => r.id === id ? { ...r, ...patch } : r) })),
         removeRaise: (id) =>
           set(s => ({ raises: s.raises.filter(r => r.id !== id) })),
+
+        addInvestment: (i) =>
+          set(s => ({ investments: [...s.investments, { ...i, id: crypto.randomUUID() }] })),
+        updateInvestment: (id, patch) =>
+          set(s => ({ investments: s.investments.map(x => x.id === id ? { ...x, ...patch } : x) })),
+        removeInvestment: (id) =>
+          set(s => ({ investments: s.investments.filter(x => x.id !== id) })),
+
+        addRecurringCharge: (c) =>
+          set(s => ({ recurringCharges: [...s.recurringCharges, { ...c, id: crypto.randomUUID() }] })),
+        updateRecurringCharge: (id, patch) =>
+          set(s => ({ recurringCharges: s.recurringCharges.map(x => x.id === id ? { ...x, ...patch } : x) })),
+        removeRecurringCharge: (id) =>
+          set(s => ({ recurringCharges: s.recurringCharges.filter(x => x.id !== id) })),
       }),
       {
         name: 'projection-library',
@@ -91,6 +115,8 @@ export const useLibraryStore = create<LibraryState>()(
             ...current,
             ...persisted,
             profile: normalizeProfile(persisted.profile ?? current.profile),
+            investments: persisted.investments ?? current.investments,
+            recurringCharges: persisted.recurringCharges ?? current.recurringCharges,
           };
         },
       },

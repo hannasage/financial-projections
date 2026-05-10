@@ -32,9 +32,9 @@ export function PlanCard({ plan, onEdit, onDelete, onDuplicate }: PlanCardProps)
   const rows    = simulate(merged, getReturnRate(merged));
   const endM    = merged.horizonYears * 12;
   const midM    = Math.round(endM / 2);
-  const start   = rows[0]?.savings ?? 0;
-  const mid     = rows[Math.min(midM, rows.length - 1)]?.savings ?? 0;
-  const end     = rows[Math.min(endM, rows.length - 1)]?.savings ?? 0;
+  const start   = rows[0]?.liquidTotal ?? 0;
+  const mid     = rows[Math.min(midM, rows.length - 1)]?.liquidTotal ?? 0;
+  const end     = rows[Math.min(endM, rows.length - 1)]?.liquidTotal ?? 0;
   const growthLabel =
     merged.returnMode === 'none'   ? '0% cash' :
     merged.returnMode === 'hysa'   ? `${merged.hysaRate ?? 4.5}% HYSA` :

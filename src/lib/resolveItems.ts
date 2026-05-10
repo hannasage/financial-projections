@@ -1,4 +1,4 @@
-import type { Scenario, Debt, Purchase, Raise } from './types';
+import type { Scenario, Debt, Purchase, Raise, Investment, RecurringCharge } from './types';
 import type { Profile } from '../stores/libraryStore';
 import { getTodayStartDate } from './constants';
 
@@ -7,21 +7,33 @@ export interface LibraryData {
   debts:     Debt[];
   purchases: Purchase[];
   raises:    Raise[];
+  investments:     Investment[];
+  recurringCharges: RecurringCharge[];
 }
 
 export function resolveItems(scenario: Scenario, library: LibraryData): LibraryData {
   const exclD = new Set(scenario.excludedDebtIds     ?? []);
   const exclP = new Set(scenario.excludedPurchaseIds ?? []);
   const exclR = new Set(scenario.excludedRaiseIds    ?? []);
+  const exclI = new Set(scenario.excludedInvestmentIds     ?? []);
+  const exclC = new Set(scenario.excludedRecurringChargeIds ?? []);
   return {
     debts:     [...library.debts.filter(d => !exclD.has(d.id)),     ...(scenario.debts     ?? [])],
     purchases: [...library.purchases.filter(p => !exclP.has(p.id)), ...(scenario.purchases ?? [])],
     raises:    [...library.raises.filter(r => !exclR.has(r.id)),     ...(scenario.raises    ?? [])],
+    investments: [
+      ...library.investments.filter(i => !exclI.has(i.id)),
+      ...(scenario.investments ?? []),
+    ],
+    recurringCharges: [
+      ...library.recurringCharges.filter(c => !exclC.has(c.id)),
+      ...(scenario.recurringCharges ?? []),
+    ],
   };
 }
 
 export function mergeIntoScenario(scenario: Scenario, library: LibraryData): Scenario {
-  const { debts, purchases, raises } = resolveItems(scenario, library);
+  const { debts, purchases, raises, investments, recurringCharges } = resolveItems(scenario, library);
   const profile = library.profile;
   const today = getTodayStartDate();
   const fromScenarioYear = Number((scenario as { startYear?: number }).startYear);
@@ -59,5 +71,7 @@ export function mergeIntoScenario(scenario: Scenario, library: LibraryData): Sce
     debts,
     purchases,
     raises,
+    investments,
+    recurringCharges,
   };
 }

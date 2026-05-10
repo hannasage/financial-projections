@@ -13,6 +13,9 @@ export function useSimulation(scenario: Scenario): SimRow[] {
       return simulate(resolved, getReturnRate(resolved));
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [JSON.stringify(scenario), JSON.stringify({ d: library.debts, p: library.purchases, r: library.raises })],
+    [JSON.stringify(scenario), JSON.stringify({
+      d: library.debts, p: library.purchases, r: library.raises,
+      i: library.investments, c: library.recurringCharges,
+    })],
   );
 }

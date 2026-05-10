@@ -6,7 +6,7 @@ import type { SimRow } from '../../lib/types';
 interface Props {
   active?:  boolean;
   payload?: Array<{ payload: SimRow }>;
-  variant?: 'savings' | 'debt';
+  variant?: 'savings' | 'debt' | 'netWorth';
 }
 
 export function ChartTooltip({ active, payload, variant = 'savings' }: Props) {
@@ -38,21 +38,49 @@ export function ChartTooltip({ active, payload, variant = 'savings' }: Props) {
             )}
           </div>
         </>
+      ) : variant === 'netWorth' ? (
+        <>
+          <div style={{ color: COLORS.text, fontSize: 13, marginBottom: 4 }}>
+            {money(d.netWorth)}
+          </div>
+          <div style={{ color: COLORS.muted, fontSize: 9, letterSpacing: 1, marginBottom: 6 }}>
+            NET WORTH · SAVINGS + ASSET VALUES − LIABILITIES
+          </div>
+          <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: 5, lineHeight: 2.1 }}>
+            <div style={{ color: d.netWorthChange >= 0 ? COLORS.accent : COLORS.red }}>
+              Δ this month: {d.netWorthChange >= 0 ? '+' : ''}{money(d.netWorthChange)}
+            </div>
+            <div style={{ color: COLORS.muted }}>liquid: {money(d.liquidTotal)}</div>
+            <div style={{ color: COLORS.muted }}>cash: {money(d.savings)} · inv: {money(d.investments)}</div>
+            <div style={{ color: COLORS.muted }}>owed: {money(d.debtOutstanding)}</div>
+          </div>
+        </>
       ) : (
         <>
           <div style={{ color: COLORS.text, fontSize: 13, marginBottom: 5 }}>
-            {money(d.savings)}
+            {money(d.liquidTotal)}
+          </div>
+          <div style={{ color: COLORS.muted, fontSize: 9, letterSpacing: 1, marginBottom: 6 }}>
+            CASH + INVESTMENTS
           </div>
           <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: 5, lineHeight: 2.1 }}>
+            <div style={{ color: COLORS.muted }}>cash: {money(d.savings)}</div>
+            {d.investments > 0 && <div style={{ color: COLORS.accent }}>invested: {money(d.investments)}</div>}
             <div style={{ color: COLORS.muted }}>net budget: {money(d.effectiveEnv)}/mo</div>
             {d.monthlyAllowance > 0 && (
               <div style={{ color: COLORS.muted }}>− allowance: {money(d.monthlyAllowance)}/mo</div>
             )}
+            {d.recurringTotal > 0 && (
+              <div style={{ color: COLORS.muted }}>− recurring: {money(d.recurringTotal)}/mo</div>
+            )}
             {d.debtBurden      > 0 && <div style={{ color: COLORS.red    }}>− debt: {money(d.debtBurden)}/mo</div>}
             {d.purchaseOutflow > 0 && <div style={{ color: COLORS.orange }}>− loans: {money(d.purchaseOutflow)}/mo</div>}
+            {d.investmentContributions > 0 && (
+              <div style={{ color: COLORS.accent }}>− to invest: {money(d.investmentContributions)}/mo</div>
+            )}
             {d.raiseBonus      > 0 && <div style={{ color: COLORS.accent }}>+ raise: {money(d.raiseBonus)}/mo</div>}
             {d.rentRelief      > 0 && <div style={{ color: COLORS.blue   }}>+ rent freed: {money(d.rentRelief)}/mo</div>}
-            <div style={{ color: COLORS.dim }}>→ saving {money(d.savingsInflow)}/mo</div>
+            <div style={{ color: COLORS.dim }}>→ liquid {money(d.liquidInflow)}/mo</div>
           </div>
         </>
       )}

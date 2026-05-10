@@ -52,8 +52,8 @@ export function ComparisonTable({ plans, activePlanIds, clipYears, tab }: Props)
           if (tab === 'liquidity') {
             return {
               planId:    plan.id,
-              primary:   match?.savings ?? null,
-              secondary: match?.savingsInflow ?? null,
+              primary:   match?.liquidTotal ?? null,
+              secondary: match?.liquidInflow ?? null,
             };
           }
           if (tab === 'debt') {
@@ -95,7 +95,7 @@ export function ComparisonTable({ plans, activePlanIds, clipYears, tab }: Props)
                   <th
                     scope="col"
                     title={
-                      tab === 'liquidity' ? 'Savings balance'
+                      tab === 'liquidity' ? 'Cash savings plus investment balances'
                         : tab === 'debt' ? 'Debts + loans owed'
                           : 'Net worth (savings + market value of purchases − liabilities)'
                     }
@@ -106,7 +106,7 @@ export function ComparisonTable({ plans, activePlanIds, clipYears, tab }: Props)
                   <th
                     scope="col"
                     title={
-                      tab === 'liquidity' ? 'Net monthly savings'
+                      tab === 'liquidity' ? 'Monthly add to cash + investments (after debts & loans)'
                         : tab === 'debt' ? 'Debt + loan payments'
                           : 'Month-over-month change in net worth'
                     }
