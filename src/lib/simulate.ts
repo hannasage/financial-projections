@@ -29,16 +29,32 @@ export function simulate(
     (a, b) => absMo(a.year, a.monthIdx, safeStartYear, safeStartMonthIdx) - absMo(b.year, b.monthIdx, safeStartYear, safeStartMonthIdx),
   );
 
-  const purchaseMeta = purchases.map(p => {
+  type PurchaseMetaRow = (typeof purchases)[number] & {
+    startM: number;
+    payoffM: number;
+    /** Principal balance at the first simulated month this loan is active */
+    initialPrincipal: number;
+  };
+  const purchaseMeta: PurchaseMetaRow[] = purchases.map(p => {
     const startM = absMo(p.year, p.monthIdx, safeStartYear, safeStartMonthIdx);
     if (startM >= 0) {
-      return { ...p, startM, payoffM: startM + payoffMonths(p.loanAmount, p.rate, p.payment) };
+      return {
+        ...p,
+        startM,
+        payoffM: startM + payoffMonths(p.loanAmount, p.rate, p.payment),
+        initialPrincipal: p.loanAmount,
+      };
     }
     // Past loan: remaining balance uses the 1× std payment as historical baseline,
     // so the multiplier only accelerates payments from simulation start onward.
     const basePmt   = stdPayment(p.loanAmount, p.rate, p.termMonths) || p.payment;
     const remaining = remainingBalance(p.loanAmount, p.rate, basePmt, -startM);
-    return { ...p, startM, payoffM: payoffMonths(remaining, p.rate, p.payment) };
+    return {
+      ...p,
+      startM,
+      payoffM: startM + payoffMonths(remaining, p.rate, p.payment),
+      initialPrincipal: remaining,
+    };
   });
 
   // Cascade: mutable per-debt trackers persist across the month loop.
@@ -76,6 +92,9 @@ export function simulate(
         payoffM: absMo(d.payoffYear, d.payoffMonthIdx, safeStartYear, safeStartMonthIdx),
       }))
     : null;
+
+  /** End-of-month remaining principal per purchase loan (for debt paydown chart) */
+  const purchaseLoanDyn: number[] = purchaseMeta.map(() => 0);
 
   for (let m = 0; m <= totalMonths; m++) {
     const yr  = safeStartYear + Math.floor((safeStartMonthIdx + m) / 12);
@@ -150,6 +169,26 @@ export function simulate(
       }
     }
 
+    // Amortize purchase-loan principal (same schedule as purchaseOutflow) for debtOutstanding chart.
+    for (let i = 0; i < purchaseMeta.length; i++) {
+      const p = purchaseMeta[i];
+      if (!p.loanAmount || p.loanAmount <= 0 || !p.payment || p.payment <= 0) {
+        purchaseLoanDyn[i] = 0;
+        continue;
+      }
+      if (m < p.startM || m >= p.payoffM) {
+        purchaseLoanDyn[i] = 0;
+        continue;
+      }
+      const atFirstSimMonth =
+        (p.startM >= 0 && m === p.startM) || (p.startM < 0 && m === 0);
+      const balStart = atFirstSimMonth ? p.initialPrincipal : purchaseLoanDyn[i];
+      const rMo = p.rate / 100 / 12;
+      purchaseLoanDyn[i] = rMo > 0
+        ? Math.max(0, balStart * (1 + rMo) - p.payment)
+        : Math.max(0, balStart - p.payment);
+    }
+
     if (downThisMonth > 0) savings -= downThisMonth;
 
     const allowance = monthlyAllowance ?? 0;
@@ -196,6 +235,10 @@ export function simulate(
         if (st.hasBal) debtOutstanding += st.dynBal;
         else debtOutstanding += pmt * Math.max(0, st.payoffM - m);
       }
+    }
+
+    for (let i = 0; i < purchaseLoanDyn.length; i++) {
+      debtOutstanding += purchaseLoanDyn[i];
     }
 
     rows.push({

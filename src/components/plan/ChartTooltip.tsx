@@ -30,7 +30,7 @@ export function ChartTooltip({ active, payload, variant = 'savings' }: Props) {
             {money(d.debtOutstanding)}
           </div>
           <div style={{ color: COLORS.muted, fontSize: 9, letterSpacing: 1, marginBottom: 6 }}>
-            EST. TOTAL OWED
+            EST. DEBTS + LOAN BALANCES
           </div>
           <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: 5, lineHeight: 2.1 }}>
             {d.debtBurden > 0 && (
