@@ -202,6 +202,32 @@ export function PurchaseItem({ p, onChange, onRemove, housingCost, startYear = S
         ))}
       </div>
 
+      {/* Optional: asset value for net worth (equity = value − loan balance in sim) */}
+      <div style={{ marginBottom: 10 }}>
+        <label htmlFor={`mv-${p.id}`} style={S.label}>Market value (optional)</label>
+        <p style={{ fontSize: 10, color: COLORS.muted, margin: '4px 0 6px', lineHeight: 1.45 }}>
+          Estimated value of the asset while you own it (e.g. home Zestimate). Leave blank for standard loans with no tracked asset.
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, maxWidth: 220 }}>
+          <span aria-hidden="true" style={{ color: COLORS.muted, fontSize: 10 }}>$</span>
+          <input
+            id={`mv-${p.id}`}
+            type="number"
+            min={0}
+            step={1000}
+            value={p.marketValue === undefined ? '' : p.marketValue}
+            placeholder="—"
+            aria-label="Market value for net worth, optional"
+            onChange={e => {
+              const v = e.target.value;
+              if (v === '') onChange({ marketValue: undefined });
+              else onChange({ marketValue: Math.max(0, +v) });
+            }}
+            style={{ ...S.field, flex: 1 }}
+          />
+        </div>
+      </div>
+
       {/* Row 4: term + multiplier + manual payment */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>

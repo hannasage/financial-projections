@@ -51,6 +51,8 @@ export interface Purchase {
   termMonths:  number;
   multiplier:  number;
   payment:     number;
+  /** If set (>0), counts toward net worth (e.g. home/car resale value). Omit or 0 = liability-only (typical unsecured/vehicle loan). */
+  marketValue?: number;
 }
 
 export interface Raise {
@@ -80,6 +82,10 @@ export interface SimRow {
   /** Monthly allowance deducted from envelope (same each month; for tooltips) */
   monthlyAllowance: number;
   activePurchases: string[];
+  /** Liquid savings + owned purchase market values − total liabilities (debts + loan principals). */
+  netWorth:        number;
+  /** Month-over-month change in net worth (first month vs pre-projection baseline). */
+  netWorthChange:  number;
 }
 
 export interface Plan {

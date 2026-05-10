@@ -11,6 +11,44 @@ function effectivePayment(d: Debt, m: number, startYear: number, startMonthIdx: 
   return payment;
 }
 
+/** Liabilities from non-purchase debts at the start of simulation month `m` (before that month’s payments). */
+function nonPurchaseDebtOutstandingAtMonthStart(
+  debts: Debt[],
+  m: number,
+  startYear: number,
+  startMonthIdx: number,
+): number {
+  let total = 0;
+  for (const d of debts) {
+    const payoffM = absMo(d.payoffYear, d.payoffMonthIdx, startYear, startMonthIdx);
+    if (m >= payoffM) continue;
+    const pmt = effectivePayment(d, m, startYear, startMonthIdx);
+    const hasBal = (d.balance ?? 0) > 0;
+    if (hasBal) total += d.balance ?? 0;
+    else total += pmt * Math.max(0, payoffM - m);
+  }
+  return total;
+}
+
+function preStartNetWorthFloat(
+  startSavings: number,
+  purchaseMeta: Array<{ startM: number; initialPrincipal: number; marketValue?: number }>,
+  debts: Debt[],
+  startYear: number,
+  startMonthIdx: number,
+): number {
+  let nw = startSavings;
+  for (const p of purchaseMeta) {
+    const mv = p.marketValue;
+    if (mv != null && mv > 0 && p.startM < 0) nw += mv;
+  }
+  for (const p of purchaseMeta) {
+    if (p.startM < 0) nw -= p.initialPrincipal;
+  }
+  nw -= nonPurchaseDebtOutstandingAtMonthStart(debts, 0, startYear, startMonthIdx);
+  return nw;
+}
+
 export function simulate(
   scenario: Scenario,
   returnRate: number,
@@ -95,6 +133,10 @@ export function simulate(
 
   /** End-of-month remaining principal per purchase loan (for debt paydown chart) */
   const purchaseLoanDyn: number[] = purchaseMeta.map(() => 0);
+
+  let prevNWForChange = preStartNetWorthFloat(
+    startSavings, purchaseMeta, debts, safeStartYear, safeStartMonthIdx,
+  );
 
   for (let m = 0; m <= totalMonths; m++) {
     const yr  = safeStartYear + Math.floor((safeStartMonthIdx + m) / 12);
@@ -241,6 +283,16 @@ export function simulate(
       debtOutstanding += purchaseLoanDyn[i];
     }
 
+    let purchaseAssetMV = 0;
+    for (const p of purchaseMeta) {
+      const mv = p.marketValue;
+      if (mv != null && mv > 0 && m >= p.startM) purchaseAssetMV += mv;
+    }
+    const rawNetWorth    = savings + purchaseAssetMV - debtOutstanding;
+    const netWorth       = Math.round(rawNetWorth);
+    const netWorthChange = Math.round(rawNetWorth - prevNWForChange);
+    prevNWForChange      = rawNetWorth;
+
     rows.push({
       m,
       yr,
@@ -257,6 +309,8 @@ export function simulate(
       effectiveEnv:    Math.round(effectiveEnv),
       monthlyAllowance: Math.round(allowance),
       activePurchases,
+      netWorth,
+      netWorthChange,
     });
   }
 

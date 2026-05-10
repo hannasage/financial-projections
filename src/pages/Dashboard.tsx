@@ -35,7 +35,10 @@ export default function Dashboard() {
 
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [clipYears,     setClipYears]     = useState<number | null>(null);
-  const [comparisonTab, setComparisonTab] = useState<'liquidity' | 'debt'>('liquidity');
+  const [comparisonTab, setComparisonTab] = useState<'liquidity' | 'debt' | 'netWorth'>('liquidity');
+  const cmpTabLabelId = comparisonTab === 'liquidity' ? 'cmp-tab-liquidity'
+    : comparisonTab === 'debt' ? 'cmp-tab-debt'
+      : 'cmp-tab-networth';
 
   const maxHorizon  = useMemo(() => plans.reduce((mx, p) => Math.max(mx, p.scenario.horizonYears), 0), [plans]);
   const clipOptions = useMemo(() => [1, 3, 5, 7, 10].filter(v => v < maxHorizon), [maxHorizon]);
@@ -202,13 +205,26 @@ export default function Dashboard() {
                 >
                   Debt paydown
                 </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={comparisonTab === 'netWorth'}
+                  aria-controls="cmp-chart-panel cmp-table-panel"
+                  id="cmp-tab-networth"
+                  onClick={() => setComparisonTab('netWorth')}
+                  style={cmpTabBtn(comparisonTab === 'netWorth')}
+                >
+                  Net worth
+                </button>
               </div>
               <p style={{ fontSize: 10, color: COLORS.muted, marginBottom: 12, lineHeight: 1.5 }}>
                 {comparisonTab === 'liquidity'
                   ? 'Savings balance over time (matches year table balances).'
-                  : 'Debt and loan balances owed over time (matches year table balances).'}
+                  : comparisonTab === 'debt'
+                    ? 'Debt and loan balances owed over time (matches year table balances).'
+                    : 'Net worth: savings plus market value on purchases (when set) minus all debts and loan balances. Purchases without market value count as debt only.'}
               </p>
-              <div id="cmp-chart-panel" role="tabpanel" aria-labelledby={comparisonTab === 'liquidity' ? 'cmp-tab-liquidity' : 'cmp-tab-debt'}>
+              <div id="cmp-chart-panel" role="tabpanel" aria-labelledby={cmpTabLabelId}>
                 <ComparisonChart plans={plans} activePlanIds={activePlanIds} clipYears={clipYears} tab={comparisonTab} />
               </div>
             </section>
@@ -249,10 +265,17 @@ export default function Dashboard() {
 
             {/* Comparison table */}
             <section aria-label="Year-by-year comparison table" className="sec">
-              <h2 style={{ fontSize: 11, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase', marginBottom: 12 }}>
+              <h2 style={{ fontSize: 11, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase', marginBottom: 8 }}>
                 Year-by-Year
               </h2>
-              <div id="cmp-table-panel" role="tabpanel" aria-labelledby={comparisonTab === 'liquidity' ? 'cmp-tab-liquidity' : 'cmp-tab-debt'}>
+              <p style={{ fontSize: 10, color: COLORS.muted, marginBottom: 12, lineHeight: 1.5 }}>
+                {comparisonTab === 'liquidity'
+                  ? 'Per plan: savings balance and net monthly contribution (/mo).'
+                  : comparisonTab === 'debt'
+                    ? 'Per plan: debt + loan balances owed and combined payments (/mo svc).'
+                    : 'Per plan: net worth at year-end checkpoint and that month’s change (/mo Δ).'}
+              </p>
+              <div id="cmp-table-panel" role="tabpanel" aria-labelledby={cmpTabLabelId}>
                 <ComparisonTable plans={plans} activePlanIds={activePlanIds} clipYears={clipYears} tab={comparisonTab} />
               </div>
             </section>

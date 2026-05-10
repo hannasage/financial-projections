@@ -48,7 +48,7 @@ interface Props {
   plans:         Plan[];
   activePlanIds: Set<string>;
   clipYears?:    number | null;
-  tab:           'liquidity' | 'debt';
+  tab:           'liquidity' | 'debt' | 'netWorth';
 }
 
 export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props) {
@@ -94,7 +94,9 @@ export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props)
         const match = sim[row.m];
         point[plan.title || plan.id] = tab === 'liquidity'
           ? (match?.savings ?? 0)
-          : (match?.debtOutstanding ?? 0);
+          : tab === 'debt'
+            ? (match?.debtOutstanding ?? 0)
+            : (match?.netWorth ?? 0);
       }
       return point;
     });

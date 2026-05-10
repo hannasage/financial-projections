@@ -10,7 +10,7 @@ interface Props {
   plans:         Plan[];
   activePlanIds: Set<string>;
   clipYears?:    number | null;
-  tab:           'liquidity' | 'debt';
+  tab:           'liquidity' | 'debt' | 'netWorth';
 }
 
 export function ComparisonTable({ plans, activePlanIds, clipYears, tab }: Props) {
@@ -56,11 +56,18 @@ export function ComparisonTable({ plans, activePlanIds, clipYears, tab }: Props)
               secondary: match?.savingsInflow ?? null,
             };
           }
-          const svc = match != null ? match.debtBurden + match.purchaseOutflow : null;
+          if (tab === 'debt') {
+            const svc = match != null ? match.debtBurden + match.purchaseOutflow : null;
+            return {
+              planId:    plan.id,
+              primary:   match?.debtOutstanding ?? null,
+              secondary: svc,
+            };
+          }
           return {
             planId:    plan.id,
-            primary:   match?.debtOutstanding ?? null,
-            secondary: svc,
+            primary:   match?.netWorth ?? null,
+            secondary: match?.netWorthChange ?? null,
           };
         }),
       }));
@@ -87,17 +94,25 @@ export function ComparisonTable({ plans, activePlanIds, clipYears, tab }: Props)
                 <Fragment key={plan.id}>
                   <th
                     scope="col"
-                    title={tab === 'liquidity' ? 'Savings balance' : 'Debts + loans owed'}
+                    title={
+                      tab === 'liquidity' ? 'Savings balance'
+                        : tab === 'debt' ? 'Debts + loans owed'
+                          : 'Net worth (savings + market value of purchases − liabilities)'
+                    }
                     style={{ ...thStyle, color: plan.color }}
                   >
                     {plan.title || 'Untitled'}
                   </th>
                   <th
                     scope="col"
-                    title={tab === 'liquidity' ? 'Net monthly savings' : 'Debt + loan payments'}
+                    title={
+                      tab === 'liquidity' ? 'Net monthly savings'
+                        : tab === 'debt' ? 'Debt + loan payments'
+                          : 'Month-over-month change in net worth'
+                    }
                     style={{ ...thStyle, color: `${plan.color}99` }}
                   >
-                    {tab === 'liquidity' ? '/mo' : '/mo svc'}
+                    {tab === 'liquidity' ? '/mo' : tab === 'debt' ? '/mo svc' : '/mo Δ'}
                   </th>
                 </Fragment>
               ))}
@@ -116,7 +131,11 @@ export function ComparisonTable({ plans, activePlanIds, clipYears, tab }: Props)
                     <td style={{
                       padding: '8px 10px',
                       textAlign: 'right',
-                      color: c.primary !== null ? (tab === 'debt' && c.primary > 0 ? COLORS.red : COLORS.text) : COLORS.border,
+                      color: c.primary !== null
+                        ? (tab === 'debt' && c.primary > 0 ? COLORS.red
+                          : tab === 'netWorth' && c.primary < 0 ? COLORS.red
+                            : COLORS.text)
+                        : COLORS.border,
                       fontWeight: 500,
                     }}>
                       {c.primary !== null ? money(c.primary) : '—'}
@@ -124,10 +143,16 @@ export function ComparisonTable({ plans, activePlanIds, clipYears, tab }: Props)
                     <td style={{
                       padding: '8px 10px',
                       textAlign: 'right',
-                      color: c.secondary !== null ? COLORS.dim : COLORS.border,
+                      color: c.secondary !== null
+                        ? (tab === 'netWorth'
+                          ? (c.secondary > 0 ? COLORS.accent : c.secondary < 0 ? COLORS.red : COLORS.dim)
+                          : COLORS.dim)
+                        : COLORS.border,
                       fontSize: 11,
                     }}>
-                      {c.secondary !== null ? money(c.secondary) : '—'}
+                      {c.secondary !== null
+                        ? (tab === 'netWorth' && c.secondary > 0 ? `+${money(c.secondary)}` : money(c.secondary))
+                        : '—'}
                     </td>
                   </Fragment>
                 ))}

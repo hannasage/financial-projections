@@ -247,7 +247,7 @@ export default function IO() {
             <button onClick={handleAddPurchase} style={addBtnStyle}>+ Add Purchase</button>
           </div>
           <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: library.purchases.length ? 8 : 0 }}>
-            Loans and house payments. Down payment hits savings at purchase date.
+            Loans and house payments. Down payment hits savings at purchase date. Optional market value feeds net worth (equity); leave blank for debt-only loans.
           </p>
           {library.purchases.length === 0 && (
             <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 8, fontStyle: 'italic' }}>
