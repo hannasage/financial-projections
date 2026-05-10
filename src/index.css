@@ -119,4 +119,13 @@ button:focus-visible {
   table {
     font-size: 13px !important;
   }
+
+  /* Prevent iOS Safari from zooming on input focus.
+     Safari zooms whenever a focused field has font-size < 16px.
+     Setting 16px here overrides all inline fontSize styles. */
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
