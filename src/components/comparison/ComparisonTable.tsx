@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 import { useColors } from '../../stores/themeStore';
 import { money, getReturnRate } from '../../lib/finance';
 import { simulate } from '../../lib/simulate';
@@ -10,9 +10,10 @@ interface Props {
   plans:         Plan[];
   activePlanIds: Set<string>;
   clipYears?:    number | null;
+  tab:           'liquidity' | 'debt';
 }
 
-export function ComparisonTable({ plans, activePlanIds, clipYears }: Props) {
+export function ComparisonTable({ plans, activePlanIds, clipYears, tab }: Props) {
   const COLORS      = useColors();
   const library     = useLibraryStore();
   const activePlans = plans.filter(p => activePlanIds.has(p.id));
@@ -46,19 +47,25 @@ export function ComparisonTable({ plans, activePlanIds, clipYears }: Props) {
       .map(row => ({
         ageFloor: row.ageFloor,
         yr:       row.yr,
-        balances: activePlans.map(plan => {
+        cells: activePlans.map(plan => {
           const match = (simulations[plan.id] ?? []).find(r => r.m === row.m);
+          if (tab === 'liquidity') {
+            return {
+              planId:    plan.id,
+              primary:   match?.savings ?? null,
+              secondary: match?.savingsInflow ?? null,
+            };
+          }
+          const svc = match != null ? match.debtBurden + match.purchaseOutflow : null;
           return {
-            id:      plan.id,
-            color:   plan.color,
-            title:   plan.title || plan.id,
-            savings: match?.savings      ?? null,
-            monthly: match?.savingsInflow ?? null,
+            planId:    plan.id,
+            primary:   match?.debtOutstanding ?? null,
+            secondary: svc,
           };
         }),
       }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePlans.map(p => p.id + p.updated).join(','), simulations, clipYears]);
+  }, [activePlans.map(p => p.id + p.updated).join(','), simulations, clipYears, tab]);
 
   if (activePlans.length === 0) {
     return (
@@ -69,46 +76,66 @@ export function ComparisonTable({ plans, activePlanIds, clipYears }: Props) {
   }
 
   return (
-    <div className="tbl">
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 400 }}>
-        <thead>
-          <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-            <th scope="col" style={{ ...thStyle, textAlign: 'left', color: COLORS.muted }}>Age</th>
-            <th scope="col" style={{ ...thStyle, textAlign: 'left', color: COLORS.muted }}>Year</th>
-            {activePlans.map(plan => (
-              <>
-                <th key={`${plan.id}-bal`} scope="col" style={{ ...thStyle, color: plan.color }}>
-                  {plan.title || 'Untitled'}
-                </th>
-                <th key={`${plan.id}-mo`} scope="col" style={{ ...thStyle, color: `${plan.color}99` }}>
-                  /mo
-                </th>
-              </>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={`${row.yr}-${row.ageFloor}`} style={{
-              borderBottom: `1px solid ${COLORS.border}18`,
-              background: i % 2 === 0 ? `${COLORS.surface}80` : 'transparent',
-            }}>
-              <td style={{ padding: '8px 10px', color: COLORS.accent, fontWeight: 500 }}>{row.ageFloor}</td>
-              <td style={{ padding: '8px 10px', color: COLORS.muted }}>{row.yr}</td>
-              {row.balances.map(b => (
-                <>
-                  <td key={`${b.id}-bal`} style={{ padding: '8px 10px', textAlign: 'right', color: b.savings !== null ? COLORS.text : COLORS.border, fontWeight: 500 }}>
-                    {b.savings !== null ? money(b.savings) : '—'}
-                  </td>
-                  <td key={`${b.id}-mo`} style={{ padding: '8px 10px', textAlign: 'right', color: b.monthly !== null ? COLORS.dim : COLORS.border, fontSize: 11 }}>
-                    {b.monthly !== null ? money(b.monthly) : '—'}
-                  </td>
-                </>
+    <div>
+      <div className="tbl">
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 400 }}>
+          <thead>
+            <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+              <th scope="col" style={{ ...thStyle, textAlign: 'left', color: COLORS.muted }}>Age</th>
+              <th scope="col" style={{ ...thStyle, textAlign: 'left', color: COLORS.muted }}>Year</th>
+              {activePlans.map(plan => (
+                <Fragment key={plan.id}>
+                  <th
+                    scope="col"
+                    title={tab === 'liquidity' ? 'Savings balance' : 'Debts + loans owed'}
+                    style={{ ...thStyle, color: plan.color }}
+                  >
+                    {plan.title || 'Untitled'}
+                  </th>
+                  <th
+                    scope="col"
+                    title={tab === 'liquidity' ? 'Net monthly savings' : 'Debt + loan payments'}
+                    style={{ ...thStyle, color: `${plan.color}99` }}
+                  >
+                    {tab === 'liquidity' ? '/mo' : '/mo svc'}
+                  </th>
+                </Fragment>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={`${row.yr}-${row.ageFloor}`} style={{
+                borderBottom: `1px solid ${COLORS.border}18`,
+                background: i % 2 === 0 ? `${COLORS.surface}80` : 'transparent',
+              }}>
+                <td style={{ padding: '8px 10px', color: COLORS.accent, fontWeight: 500 }}>{row.ageFloor}</td>
+                <td style={{ padding: '8px 10px', color: COLORS.muted }}>{row.yr}</td>
+                {row.cells.map(c => (
+                  <Fragment key={c.planId}>
+                    <td style={{
+                      padding: '8px 10px',
+                      textAlign: 'right',
+                      color: c.primary !== null ? (tab === 'debt' && c.primary > 0 ? COLORS.red : COLORS.text) : COLORS.border,
+                      fontWeight: 500,
+                    }}>
+                      {c.primary !== null ? money(c.primary) : '—'}
+                    </td>
+                    <td style={{
+                      padding: '8px 10px',
+                      textAlign: 'right',
+                      color: c.secondary !== null ? COLORS.dim : COLORS.border,
+                      fontSize: 11,
+                    }}>
+                      {c.secondary !== null ? money(c.secondary) : '—'}
+                    </td>
+                  </Fragment>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

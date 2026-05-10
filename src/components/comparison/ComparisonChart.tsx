@@ -48,9 +48,10 @@ interface Props {
   plans:         Plan[];
   activePlanIds: Set<string>;
   clipYears?:    number | null;
+  tab:           'liquidity' | 'debt';
 }
 
-export function ComparisonChart({ plans, activePlanIds, clipYears }: Props) {
+export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props) {
   const COLORS      = useColors();
   const library     = useLibraryStore();
   const activePlans = plans.filter(p => activePlanIds.has(p.id));
@@ -91,11 +92,13 @@ export function ComparisonChart({ plans, activePlanIds, clipYears }: Props) {
       for (const plan of activePlans) {
         const sim   = simulations[plan.id] ?? [];
         const match = sim[row.m];
-        point[plan.title || plan.id] = match?.savings ?? 0;
+        point[plan.title || plan.id] = tab === 'liquidity'
+          ? (match?.savings ?? 0)
+          : (match?.debtOutstanding ?? 0);
       }
       return point;
     });
-  }, [activePlans, simulations, clipped, startDecimalYr]);
+  }, [activePlans, simulations, clipped, startDecimalYr, tab]);
 
   if (activePlans.length === 0) {
     return (

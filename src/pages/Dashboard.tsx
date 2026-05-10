@@ -35,6 +35,7 @@ export default function Dashboard() {
 
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [clipYears,     setClipYears]     = useState<number | null>(null);
+  const [comparisonTab, setComparisonTab] = useState<'liquidity' | 'debt'>('liquidity');
 
   const maxHorizon  = useMemo(() => plans.reduce((mx, p) => Math.max(mx, p.scenario.horizonYears), 0), [plans]);
   const clipOptions = useMemo(() => [1, 3, 5, 7, 10].filter(v => v < maxHorizon), [maxHorizon]);
@@ -70,6 +71,15 @@ export default function Dashboard() {
 
   const chipStyle = (active: boolean): React.CSSProperties => ({
     padding: '4px 10px', fontSize: 11, borderRadius: 4,
+    border:     `1px solid ${active ? COLORS.accent : COLORS.border}`,
+    background:  active ? `${COLORS.accent}22` : 'transparent',
+    color:       active ? COLORS.accent : COLORS.muted,
+    fontFamily: "'IBM Plex Mono', monospace",
+    cursor: 'pointer', transition: 'all 0.12s',
+  });
+
+  const cmpTabBtn = (active: boolean): React.CSSProperties => ({
+    padding: '6px 14px', fontSize: 11, borderRadius: 4,
     border:     `1px solid ${active ? COLORS.accent : COLORS.border}`,
     background:  active ? `${COLORS.accent}22` : 'transparent',
     color:       active ? COLORS.accent : COLORS.muted,
@@ -147,7 +157,7 @@ export default function Dashboard() {
             </section>
 
             {/* Comparison chart */}
-            <section aria-label="Savings comparison chart" className="sec">
+            <section aria-label="Trajectory comparison chart" className="sec">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
                 <h2 style={{ fontSize: 11, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase', margin: 0 }}>
                   Trajectory Comparison
@@ -165,7 +175,42 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
-              <ComparisonChart plans={plans} activePlanIds={activePlanIds} clipYears={clipYears} />
+              <div
+                role="tablist"
+                aria-label="Comparison metric"
+                style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={comparisonTab === 'liquidity'}
+                  aria-controls="cmp-chart-panel cmp-table-panel"
+                  id="cmp-tab-liquidity"
+                  onClick={() => setComparisonTab('liquidity')}
+                  style={cmpTabBtn(comparisonTab === 'liquidity')}
+                >
+                  Liquidity
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={comparisonTab === 'debt'}
+                  aria-controls="cmp-chart-panel cmp-table-panel"
+                  id="cmp-tab-debt"
+                  onClick={() => setComparisonTab('debt')}
+                  style={cmpTabBtn(comparisonTab === 'debt')}
+                >
+                  Debt paydown
+                </button>
+              </div>
+              <p style={{ fontSize: 10, color: COLORS.muted, marginBottom: 12, lineHeight: 1.5 }}>
+                {comparisonTab === 'liquidity'
+                  ? 'Savings balance over time (matches year table balances).'
+                  : 'Debt and loan balances owed over time (matches year table balances).'}
+              </p>
+              <div id="cmp-chart-panel" role="tabpanel" aria-labelledby={comparisonTab === 'liquidity' ? 'cmp-tab-liquidity' : 'cmp-tab-debt'}>
+                <ComparisonChart plans={plans} activePlanIds={activePlanIds} clipYears={clipYears} tab={comparisonTab} />
+              </div>
             </section>
 
             {/* Plans grid — drag to reorder, edit opens drawer */}
@@ -207,7 +252,9 @@ export default function Dashboard() {
               <h2 style={{ fontSize: 11, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase', marginBottom: 12 }}>
                 Year-by-Year
               </h2>
-              <ComparisonTable plans={plans} activePlanIds={activePlanIds} clipYears={clipYears} />
+              <div id="cmp-table-panel" role="tabpanel" aria-labelledby={comparisonTab === 'liquidity' ? 'cmp-tab-liquidity' : 'cmp-tab-debt'}>
+                <ComparisonTable plans={plans} activePlanIds={activePlanIds} clipYears={clipYears} tab={comparisonTab} />
+              </div>
             </section>
           </>
         )}
