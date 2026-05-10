@@ -1,5 +1,14 @@
-import type { Scenario, SimRow } from './types';
+import type { Scenario, SimRow, Debt } from './types';
 import { absMo, netMonthly, payoffMonths, stdPayment, remainingBalance } from './finance';
+
+function effectivePayment(d: Debt, m: number): number {
+  if (!d.adjustments?.length) return d.payment;
+  let payment = d.payment;
+  for (const a of d.adjustments) {
+    if (m >= absMo(a.year, a.monthIdx)) payment = a.payment;
+  }
+  return payment;
+}
 
 export function simulate(
   scenario: Scenario,
@@ -32,7 +41,7 @@ export function simulate(
 
   // Cascade: mutable per-debt trackers persist across the month loop.
   type DebtTracker = {
-    id:           string;
+    debt:         Debt;
     payment:      number;
     apr:          number;
     fixedPayoffM: number;
@@ -42,7 +51,7 @@ export function simulate(
   };
   const debtTrackers: DebtTracker[] | null = cascadeDebts && debts.length > 0
     ? debts.map(d => ({
-        id:           d.id,
+        debt:         d,
         payment:      d.payment,
         apr:          d.apr ?? 0,
         fixedPayoffM: absMo(d.payoffYear, d.payoffMonthIdx),
@@ -51,9 +60,6 @@ export function simulate(
         done:         false,
       }))
     : null;
-  const totalDebtBudget = debtTrackers
-    ? debtTrackers.reduce((s, dt) => s + dt.payment, 0)
-    : 0;
 
   const baseSalary = raises[0]?.baseSalary ?? null;
   let savings = startSavings;
@@ -78,6 +84,10 @@ export function simulate(
 
     let debtBurden: number;
     if (debtTrackers) {
+      // Update each tracker's payment to reflect any adjustment active this month.
+      for (const dt of debtTrackers) {
+        if (!dt.done) dt.payment = effectivePayment(dt.debt, m);
+      }
       // Cascade mode: pool freed payments from paid-off debts → apply to remaining debts.
       let pool = 0;
       for (const dt of debtTrackers) {
@@ -100,10 +110,11 @@ export function simulate(
           : Math.max(0, dt.dynBal - pmt);
         if (dt.dynBal <= 0) dt.done = true;
       }
-      debtBurden = debtTrackers.some(dt => !dt.done) ? totalDebtBudget : 0;
+      const currentBudget = debtTrackers.reduce((s, dt) => s + (dt.done ? 0 : dt.payment), 0);
+      debtBurden = debtTrackers.some(dt => !dt.done) ? currentBudget : 0;
     } else {
       debtBurden = debts.reduce(
-        (sum, d) => sum + (m < absMo(d.payoffYear, d.payoffMonthIdx) ? d.payment : 0),
+        (sum, d) => sum + (m < absMo(d.payoffYear, d.payoffMonthIdx) ? effectivePayment(d, m) : 0),
         0,
       );
     }

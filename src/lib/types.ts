@@ -17,6 +17,13 @@ export interface Scenario {
   raises:       Raise[];
 }
 
+export interface DebtAdjustment {
+  id:       string;
+  monthIdx: number;
+  year:     number;
+  payment:  number;
+}
+
 export interface Debt {
   id:             string;
   label:          string;
@@ -25,6 +32,7 @@ export interface Debt {
   payoffYear:     number;
   balance?:       number;  // current outstanding balance
   apr?:           number;  // annual percentage rate (%)
+  adjustments?:   DebtAdjustment[];
 }
 
 export interface Purchase {

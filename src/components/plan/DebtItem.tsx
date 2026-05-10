@@ -1,7 +1,7 @@
 import { useColors } from '../../stores/themeStore';
 import { MONTHS, YEARS, START_YEAR } from '../../lib/constants';
 import { money, payoffMonths, totalInterest } from '../../lib/finance';
-import type { Debt } from '../../lib/types';
+import type { Debt, DebtAdjustment } from '../../lib/types';
 
 interface Props {
   d:        Debt;
@@ -152,6 +152,73 @@ export function DebtItem({ d, onChange, onRemove }: Props) {
         </select>
         <span style={{ fontSize: 11, color: COLORS.dim }}>→ {money(d.payment)}/mo freed</span>
       </div>
+
+      {/* Adjustments */}
+      {(d.adjustments ?? []).length > 0 && (
+        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {(d.adjustments ?? []).map((adj, i) => (
+            <div key={adj.id} style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 10, color: COLORS.muted, letterSpacing: 1, whiteSpace: 'nowrap' }}>ADJ {i + 1}</span>
+              <select
+                value={adj.monthIdx} aria-label={`Adjustment ${i + 1} start month`}
+                onChange={e => {
+                  const next = (d.adjustments ?? []).map(a => a.id === adj.id ? { ...a, monthIdx: +e.target.value } : a);
+                  onChange({ adjustments: next });
+                }}
+                style={{ ...S.field, flex: '1 1 60px' }}
+              >
+                {MONTHS.map((mo, mi) => <option key={mi} value={mi}>{mo}</option>)}
+              </select>
+              <select
+                value={adj.year} aria-label={`Adjustment ${i + 1} start year`}
+                onChange={e => {
+                  const next = (d.adjustments ?? []).map(a => a.id === adj.id ? { ...a, year: +e.target.value } : a);
+                  onChange({ adjustments: next });
+                }}
+                style={{ ...S.field, flex: '1 1 60px' }}
+              >
+                {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span aria-hidden="true" style={{ color: COLORS.red, fontSize: 10 }}>−$</span>
+                <input
+                  type="number" value={adj.payment} min={0} max={99999} step={25}
+                  aria-label={`Adjustment ${i + 1} payment amount`}
+                  onChange={e => {
+                    const next = (d.adjustments ?? []).map(a => a.id === adj.id ? { ...a, payment: +e.target.value } : a);
+                    onChange({ adjustments: next });
+                  }}
+                  style={{ ...S.field, width: 72 }}
+                />
+                <span aria-hidden="true" style={{ fontSize: 11, color: COLORS.muted }}>/mo</span>
+              </div>
+              <button
+                onClick={() => onChange({ adjustments: (d.adjustments ?? []).filter(a => a.id !== adj.id) })}
+                aria-label={`Remove adjustment ${i + 1}`}
+                style={iconBtn}
+              >×</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button
+        onClick={() => {
+          const adj: DebtAdjustment = {
+            id:       crypto.randomUUID(),
+            monthIdx: 0,
+            year:     START_YEAR + 1,
+            payment:  d.payment,
+          };
+          onChange({ adjustments: [...(d.adjustments ?? []), adj] });
+        }}
+        style={{
+          marginTop: 8, fontSize: 10, letterSpacing: 1,
+          background: 'none', border: `1px dashed ${COLORS.border}`,
+          color: COLORS.muted, borderRadius: 4, padding: '5px 10px',
+          cursor: 'pointer', fontFamily: "'IBM Plex Mono', monospace",
+        }}
+      >+ Add Adjustment</button>
     </div>
   );
 }
