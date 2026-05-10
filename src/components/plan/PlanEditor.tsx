@@ -3,7 +3,8 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts';
-import { START_YEAR, MONTHS } from '../../lib/constants';
+import { MONTHS } from '../../lib/constants';
+import { getTodayStartDate } from '../../lib/constants';
 import { useColors } from '../../stores/themeStore';
 import { useThemeStore } from '../../stores/themeStore';
 import { useLibraryStore } from '../../stores/libraryStore';
@@ -19,6 +20,7 @@ import type { Scenario, Debt, Purchase, Raise } from '../../lib/types';
 const makeId = () => crypto.randomUUID();
 
 const DEFAULT_SCENARIO: Scenario = {
+  startMonthIdx: 0, startYear: 2026,
   envelope: 1_000, startSavings: 0, startAge: 30, horizonYears: 10,
   returnMode: 'hysa', taxPct: 25, baseSalary: 60_000, housingCost: 1_200,
   debts: [], purchases: [], raises: [],
@@ -56,6 +58,11 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
   const themeAccent = useThemeStore(s => s.theme.colors.accent);
   const accent = color ?? themeAccent;
   const init = initialScenario ?? DEFAULT_SCENARIO;
+  const today = getTodayStartDate();
+  const safeStartYear = Number.isFinite(Number(init.startYear)) ? Number(init.startYear) : today.startYear;
+  const safeStartMonthIdx = Number.isFinite(Number(init.startMonthIdx))
+    ? Math.max(0, Math.min(11, Number(init.startMonthIdx)))
+    : today.startMonthIdx;
 
   const S = {
     label: { fontSize: 10, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase' as const },
@@ -86,15 +93,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
     cursor: 'pointer', flexShrink: 0,
   };
 
-  const [envelope,     setEnvelope]     = useState(init.envelope);
-  const [startSavings, setStartSavings] = useState(init.startSavings);
-  const [startAge,     setStartAge]     = useState(init.startAge);
-  const [horizonYears, setHorizonYears] = useState(init.horizonYears);
-  const [returnMode,   setReturnMode]   = useState<Scenario['returnMode']>(init.returnMode);
-  const [hysaRate,     setHysaRate]     = useState(init.hysaRate ?? 4.5);
-  const [taxPct,       setTaxPct]       = useState(init.taxPct);
-  const [baseSalary,   setBaseSalary]   = useState(init.baseSalary);
-  const [housingCost,  setHousingCost]  = useState(init.housingCost);
+  const [tableYears, setTableYears] = useState<number | null>(null);
   const [debts,               setDebts]               = useState<Debt[]>(init.debts);
   const [cascadeDebts,        setCascadeDebts]        = useState(init.cascadeDebts ?? false);
   const [purchases,           setPurchases]           = useState<Purchase[]>(init.purchases);
@@ -117,7 +116,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
   const resolvedDebts     = useMemo(() => [...library.debts.filter(d => !excludedDebtIds.includes(d.id)),         ...debts],     [library.debts,     excludedDebtIds,     debts]);
   const resolvedPurchases = useMemo(() => [...library.purchases.filter(p => !excludedPurchaseIds.includes(p.id)), ...purchases], [library.purchases, excludedPurchaseIds, purchases]);
 
-  const addDebt    = () => setDebts(d => [...d, { id: makeId(), label: '', payment: 200, payoffMonthIdx: 0, payoffYear: START_YEAR + 1 }]);
+  const addDebt    = () => setDebts(d => [...d, { id: makeId(), label: '', payment: 200, payoffMonthIdx: safeStartMonthIdx, payoffYear: safeStartYear + 1 }]);
   const changeDebt = useCallback((id: string, patch: Partial<Debt>) => setDebts(d => d.map(x => x.id === id ? { ...x, ...patch } : x)), []);
   const rmDebt     = useCallback((id: string) => setDebts(d => d.filter(x => x.id !== id)), []);
 
@@ -125,7 +124,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
     const loanAmount = 30_000, rate = 7, termMonths = 60, multiplier = 1;
     setPurchases(ps => [...ps, {
       id: makeId(), type: 'loan', label: '',
-      year: START_YEAR + 2, monthIdx: 0,
+      year: safeStartYear + 2, monthIdx: safeStartMonthIdx,
       downPayment: 0, loanAmount, rate, termMonths, multiplier,
       payment: Math.round(stdPayment(loanAmount, rate, termMonths)),
     }]);
@@ -133,52 +132,64 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
   const changePurchase = useCallback((id: string, patch: Partial<Purchase>) => setPurchases(ps => ps.map(x => x.id === id ? { ...x, ...patch } : x)), []);
   const rmPurchase     = useCallback((id: string) => setPurchases(ps => ps.filter(x => x.id !== id)), []);
 
-  const addRaise    = () => setRaises(r => [...r, { id: makeId(), year: START_YEAR + 3, monthIdx: 0, salary: baseSalary + 10_000, baseSalary }]);
+  const addRaise    = () => setRaises(r => [...r, { id: makeId(), year: safeStartYear + 3, monthIdx: safeStartMonthIdx, salary: init.baseSalary + 10_000, baseSalary: init.baseSalary }]);
   const changeRaise = useCallback((id: string, patch: Partial<Raise>) => setRaises(r => r.map(x => x.id === id ? { ...x, ...patch } : x)), []);
   const rmRaise     = useCallback((id: string) => setRaises(r => r.filter(x => x.id !== id)), []);
 
   const scenario: Scenario = useMemo(() => ({
-    envelope, startSavings, startAge, horizonYears,
-    returnMode, hysaRate, taxPct, baseSalary, housingCost,
+    startMonthIdx: safeStartMonthIdx,
+    startYear: safeStartYear,
+    envelope: init.envelope,
+    startSavings: init.startSavings,
+    startAge: init.startAge,
+    horizonYears: init.horizonYears,
+    returnMode: init.returnMode,
+    hysaRate: init.hysaRate,
+    taxPct: init.taxPct,
+    baseSalary: init.baseSalary,
+    housingCost: init.housingCost,
     debts, cascadeDebts, purchases, raises,
     excludedDebtIds, excludedPurchaseIds, excludedRaiseIds,
-  }), [envelope, startSavings, startAge, horizonYears, returnMode, hysaRate, taxPct, baseSalary, housingCost, debts, cascadeDebts, purchases, raises, excludedDebtIds, excludedPurchaseIds, excludedRaiseIds]);
+  }), [safeStartMonthIdx, safeStartYear, init.envelope, init.startSavings, init.startAge, init.horizonYears, init.returnMode, init.hysaRate, init.taxPct, init.baseSalary, init.housingCost, debts, cascadeDebts, purchases, raises, excludedDebtIds, excludedPurchaseIds, excludedRaiseIds]);
 
-  const returnRate = getReturnRate(scenario);
-
-  const data   = useMemo(() => simulate(mergeIntoScenario(scenario, library), returnRate), [scenario, library, returnRate]);
+  const mergedScenario = useMemo(() => mergeIntoScenario(scenario, library), [scenario, library]);
+  const returnRate = getReturnRate(mergedScenario);
+  const data   = useMemo(() => simulate(mergedScenario, returnRate), [mergedScenario, returnRate]);
   const yearly = useMemo(() => data.filter(d => d.m % 12 === 0), [data]);
-  // All monthly points with a decimal-year x key so Recharts draws smooth curves.
-  const chart  = useMemo(() => data.map(row => ({ ...row, decimalYr: START_YEAR + row.m / 12 })), [data]);
+  // Align charts with merged scenario (same timeline simulate() uses — profile vs plan merged).
+  const chartStart = mergedScenario.startYear + mergedScenario.startMonthIdx / 12;
+  const chartMinYr = chartStart - 1 / 12;
+  const chartHorizon = mergedScenario.horizonYears;
+  const chart  = useMemo(() => data.map(row => ({ ...row, decimalYr: chartStart + row.m / 12 })), [data, chartStart]);
   const snap   = (m: number) => data[Math.min(m, data.length - 1)];
-  const endM   = horizonYears * 12;
+  const endM   = chartHorizon * 12;
 
   const nowDebtBurden = resolvedDebts.reduce(
-    (s, d) => s + (absMo(d.payoffYear, d.payoffMonthIdx) > 0 ? d.payment : 0), 0,
+    (s, d) => s + (absMo(d.payoffYear, d.payoffMonthIdx, mergedScenario.startYear, mergedScenario.startMonthIdx) > 0 ? d.payment : 0), 0,
   );
   const nowLoanBurden = resolvedPurchases.reduce((s, p) => {
-    const sm = absMo(p.year, p.monthIdx);
+    const sm = absMo(p.year, p.monthIdx, mergedScenario.startYear, mergedScenario.startMonthIdx);
     const pm = sm + payoffMonths(p.loanAmount, p.rate, p.payment);
     return s + (0 >= sm && 0 < pm ? p.payment : 0);
   }, 0);
-  const effectiveNow = envelope - nowDebtBurden - nowLoanBurden;
+  const effectiveNow = mergedScenario.envelope - mergedScenario.housingCost - nowDebtBurden - nowLoanBurden;
 
   const purchaseMarkers = resolvedPurchases
     .filter(p => p.loanAmount > 0 && p.payment > 0)
     .map(p => {
-      const sm  = absMo(p.year, p.monthIdx);
+      const sm  = absMo(p.year, p.monthIdx, mergedScenario.startYear, mergedScenario.startMonthIdx);
       const pmo = payoffMonths(p.loanAmount, p.rate, p.payment);
       return {
-        buyDecimalYr:   parseFloat((START_YEAR + sm / 12).toFixed(4)),
-        paidDecimalYr:  parseFloat((START_YEAR + (sm + pmo) / 12).toFixed(4)),
-        withinHorizon:  (sm + pmo) / 12 <= horizonYears,
+        buyDecimalYr:   parseFloat((chartStart + sm / 12).toFixed(4)),
+        paidDecimalYr:  parseFloat((chartStart + (sm + pmo) / 12).toFixed(4)),
+        withinHorizon:  (sm + pmo) / 12 <= chartHorizon,
       };
     });
 
   const milestones = [
     { label: 'Start',                               m: 0     },
-    { label: `Year ${Math.round(horizonYears / 2)}`, m: Math.round(endM / 2) },
-    { label: `Year ${horizonYears}`,                m: endM, hi: true },
+    { label: `Year ${Math.round(chartHorizon / 2)}`, m: Math.round(endM / 2) },
+    { label: `Year ${chartHorizon}`,                m: endM, hi: true },
   ];
 
   const handleSave = () => onSave(scenario);
@@ -187,112 +198,17 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
     <div style={{ '--plan-accent': accent, background: COLORS.bg, minHeight: '100vh', color: COLORS.text, fontFamily: "'IBM Plex Mono', monospace" } as React.CSSProperties}>
       <div style={{ maxWidth: 780, margin: '0 auto', paddingBottom: 80 }}>
 
-        {/* ── CORE SETTINGS ── */}
-        <section className="sec" aria-label="Core settings">
-          <SectionHead label="⚙️ Core Settings" addBtnStyle={addBtnStyle} labelStyle={S.label} />
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <label htmlFor="envelope-range" style={S.label}>Monthly Envelope</label>
-              <span aria-hidden="true" style={{ color: accent, fontSize: 12, fontWeight: 500 }}>{money(envelope)}/mo</span>
+        <section className="sec" aria-label="Global settings note">
+          <h2 style={{ ...S.label, marginBottom: 8 }}>Global Settings</h2>
+          <div style={{ border: `1px solid ${COLORS.border}`, borderRadius: 6, background: COLORS.surface, padding: '10px 13px', fontSize: 11, lineHeight: 2 }}>
+            <div style={{ color: COLORS.muted }}>
+              Core settings are now universal and configured in <a href="/io" style={{ color: COLORS.accent, textDecoration: 'none' }}>I/O</a>.
             </div>
-            <input
-              id="envelope-range" type="range" min={500} max={15_000} step={50}
-              value={envelope}
-              aria-label={`Monthly envelope: ${money(envelope)}`}
-              aria-valuemin={500} aria-valuemax={15000} aria-valuenow={envelope}
-              onChange={e => setEnvelope(+e.target.value)}
-            />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: COLORS.muted }} aria-hidden="true">
-              <span>$500</span><span>$15k</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 11, color: COLORS.muted }}>or type:</span>
-              <span aria-hidden="true" style={{ color: COLORS.muted, fontSize: 10 }}>$</span>
-              <input
-                type="number" value={envelope} min={0} step={50}
-                aria-label="Monthly envelope, typed"
-                onChange={e => setEnvelope(+e.target.value)}
-                style={{ ...S.field, width: 90 }}
-              />
-              <span aria-hidden="true" style={{ fontSize: 11, color: COLORS.muted }}>/mo</span>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <label htmlFor="savings-range" style={S.label}>Starting Savings</label>
-              <span aria-hidden="true" style={{ color: accent, fontSize: 12, fontWeight: 500 }}>{money(startSavings)}</span>
-            </div>
-            <input
-              id="savings-range" type="range" min={0} max={200_000} step={1000}
-              value={startSavings}
-              aria-label={`Starting savings: ${money(startSavings)}`}
-              onChange={e => setStartSavings(+e.target.value)}
-            />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: COLORS.muted }} aria-hidden="true">
-              <span>$0</span><span>$200k</span>
-            </div>
-          </div>
-
-          <div className="g2" style={{ marginTop: 14 }}>
-            {[
-              { id: 'start-age',    labelText: 'Current Age',      val: startAge,     min: 18, max: 80,   step: 1,    set: setStartAge     },
-              { id: 'horizon',      labelText: 'Horizon (years)',   val: horizonYears, min: 1,  max: 50,   step: 1,    set: setHorizonYears },
-              { id: 'base-salary',  labelText: 'Base Salary ($)',   val: baseSalary,   min: 0,  max: null, step: 5000, set: setBaseSalary   },
-              { id: 'housing-cost', labelText: 'Monthly Rent ($)',  val: housingCost,  min: 0,  max: null, step: 50,   set: setHousingCost  },
-              { id: 'tax-pct',      labelText: 'Effective Tax (%)', val: taxPct,       min: 0,  max: 60,   step: 1,    set: setTaxPct       },
-            ].map(({ id, labelText, val, min, max, step, set }) => (
-              <div key={id} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <label htmlFor={id} style={S.label}>{labelText}</label>
-                <input
-                  id={id} type="number" value={val} min={min} step={step}
-                  {...(max !== null ? { max } : {})}
-                  onChange={e => set(+e.target.value)}
-                  style={{ ...S.field, width: '100%' }}
-                />
-              </div>
-            ))}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <span style={S.label} id="growth-label">Growth Rate</span>
-              <fieldset style={{ border: 'none', padding: 0 }} aria-labelledby="growth-label">
-                <div style={{ display: 'flex', gap: 5 }}>
-                  {([['none','0% cash'],['hysa','HYSA'],['invested','7% index']] as const).map(([k, l]) => (
-                    <button
-                      key={k} onClick={() => setReturnMode(k)}
-                      aria-pressed={returnMode === k}
-                      style={{ ...chipStyle(returnMode === k, accent), flex: 1, padding: '7px 4px', fontSize: 10 }}
-                    >{k === 'hysa' ? `${hysaRate}% HYSA` : l}</button>
-                  ))}
-                </div>
-                {returnMode === 'hysa' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
-                    <input
-                      type="number" value={hysaRate} min={0} max={20} step={0.1}
-                      aria-label="Custom HYSA rate"
-                      onChange={e => setHysaRate(Math.max(0, Math.min(20, +e.target.value)))}
-                      style={{ ...S.field, width: 70, textAlign: 'right' }}
-                    />
-                    <span style={{ fontSize: 11, color: COLORS.muted }}>% APY</span>
-                    <input
-                      type="range" min={0} max={10} step={0.1} value={hysaRate}
-                      aria-label="HYSA rate slider"
-                      onChange={e => setHysaRate(+e.target.value)}
-                      style={{ flex: 1 }}
-                    />
-                  </div>
-                )}
-              </fieldset>
-            </div>
-          </div>
-
-          {/* Summary bar */}
-          <div role="status" aria-live="polite" style={{
-            background: COLORS.surface, border: `1px solid ${COLORS.border}`,
-            borderRadius: 6, padding: '10px 13px', fontSize: 11, lineHeight: 2.3, marginTop: 14,
-          }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0 12px' }}>
-              <span style={{ color: COLORS.text }}>Envelope: <strong>{money(envelope)}/mo</strong></span>
+              <span>Start: <strong>{MONTHS[mergedScenario.startMonthIdx]} {mergedScenario.startYear}</strong></span>
+              <span>Envelope: <strong>{money(mergedScenario.envelope)}/mo</strong></span>
+              <span style={{ color: COLORS.muted }}>− housing: {money(mergedScenario.housingCost)}/mo</span>
+              <span>Horizon: <strong>{mergedScenario.horizonYears}y</strong></span>
               {nowDebtBurden > 0 && <span style={{ color: COLORS.red }}>− debt: {money(nowDebtBurden)}/mo</span>}
               {nowLoanBurden > 0 && <span style={{ color: COLORS.orange }}>− loans: {money(nowLoanBurden)}/mo</span>}
               <span style={{ color: accent }}>→ {money(effectiveNow)}/mo to savings now</span>
@@ -354,7 +270,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
             </div>
           )}
           {debts.map(d => (
-            <DebtItem key={d.id} d={d} onChange={p => changeDebt(d.id, p)} onRemove={() => rmDebt(d.id)} />
+            <DebtItem key={d.id} d={d} startYear={mergedScenario.startYear} onChange={p => changeDebt(d.id, p)} onRemove={() => rmDebt(d.id)} />
           ))}
         </section>
 
@@ -405,7 +321,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
             </p>
           )}
           {purchases.map(p => (
-            <PurchaseItem key={p.id} p={p} housingCost={housingCost}
+            <PurchaseItem key={p.id} p={p} startYear={mergedScenario.startYear} startMonthIdx={mergedScenario.startMonthIdx} housingCost={mergedScenario.housingCost}
               onChange={patch => changePurchase(p.id, patch)} onRemove={() => rmPurchase(p.id)} />
           ))}
         </section>
@@ -457,7 +373,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
             </p>
           )}
           {raises.map(r => (
-            <RaiseItem key={r.id} r={r} taxPct={taxPct} baseSalary={baseSalary}
+            <RaiseItem key={r.id} r={r} startYear={mergedScenario.startYear} taxPct={mergedScenario.taxPct} baseSalary={mergedScenario.baseSalary}
               onChange={patch => changeRaise(r.id, patch)} onRemove={() => rmRaise(r.id)} />
           ))}
         </section>
@@ -473,14 +389,14 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
                 border: `1px solid ${s.hi ? accent : COLORS.border}`,
                 borderRadius: 6,
               }}>
-                <div style={{ ...S.label, marginBottom: 6 }}>Age {Math.floor(startAge + s.m / 12)}</div>
+                <div style={{ ...S.label, marginBottom: 6 }}>Age {Math.floor(mergedScenario.startAge + s.m / 12)}</div>
                 <div className="syne" style={{ fontSize: 22, fontWeight: 800, color: s.hi ? accent : COLORS.text, lineHeight: 1, marginBottom: 5 }}>
                   {money(snap(s.m)?.savings ?? 0)}
                 </div>
                 <div style={{ fontSize: 11, color: COLORS.muted }}>{s.label}</div>
                 {s.hi && (
                   <div style={{ fontSize: 10, color: `${accent}99`, marginTop: 3 }}>
-                    {returnMode === 'none' ? '0% · cash' : returnMode === 'hysa' ? `${hysaRate}% HYSA` : '7% invested'}
+                    {mergedScenario.returnMode === 'none' ? '0% · cash' : mergedScenario.returnMode === 'hysa' ? `${mergedScenario.hysaRate ?? 4.5}% HYSA` : '7% invested'}
                   </div>
                 )}
               </div>
@@ -503,8 +419,8 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
               <CartesianGrid strokeDasharray="1 6" stroke={COLORS.faint} vertical={false} />
               <XAxis
                 dataKey="decimalYr" type="number"
-                domain={[START_YEAR, START_YEAR + horizonYears]}
-                tickCount={Math.min(horizonYears + 1, 16)}
+                domain={[chartMinYr, chartStart + chartHorizon]}
+                tickCount={Math.min(chartHorizon + 1, 16)}
                 tickFormatter={v => (v % 1 < 0.05) ? String(Math.round(v)) : ''}
                 tick={{ fill: COLORS.muted, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
                 axisLine={false} tickLine={false}
@@ -535,9 +451,53 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
           </ResponsiveContainer>
         </section>
 
+        <section className="sec" aria-label="Debt paydown chart">
+          <h2 style={{ ...S.label, marginBottom: 8 }}>Debt Paydown</h2>
+          <ResponsiveContainer width="100%" height={190}>
+            <AreaChart data={chart} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="debtGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={COLORS.red} stopOpacity={0.25} />
+                  <stop offset="95%" stopColor={COLORS.red} stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="1 6" stroke={COLORS.faint} vertical={false} />
+              <XAxis
+                dataKey="decimalYr" type="number"
+                domain={[chartMinYr, chartStart + chartHorizon]}
+                tickFormatter={v => (v % 1 < 0.05) ? String(Math.round(v)) : ''}
+                tick={{ fill: COLORS.muted, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
+                axisLine={false} tickLine={false}
+              />
+              <YAxis
+                tickFormatter={shortK}
+                tick={{ fill: COLORS.muted, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
+                axisLine={false} tickLine={false} width={44}
+              />
+              <Tooltip content={<ChartTooltip variant="debt" />} />
+              <Area
+                type="monotone" dataKey="debtOutstanding"
+                stroke={COLORS.red} strokeWidth={2}
+                fill="url(#debtGrad)" dot={false}
+                activeDot={{ r: 4, fill: COLORS.red, strokeWidth: 0 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </section>
+
         {/* ── YEAR TABLE ── */}
         <section className="sec" aria-label="Year-by-year breakdown">
-          <h2 style={{ ...S.label, marginBottom: 12 }}>Year-by-Year</h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
+            <h2 style={{ ...S.label, marginBottom: 0 }}>Year-by-Year</h2>
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+              {[3, 5, 7, 10].filter(y => y < mergedScenario.horizonYears).map(y => (
+                <button key={y} onClick={() => setTableYears(tableYears === y ? null : y)} style={chipStyle(tableYears === y)} aria-pressed={tableYears === y}>
+                  {y}yr
+                </button>
+              ))}
+              <button onClick={() => setTableYears(null)} style={chipStyle(tableYears === null)} aria-pressed={tableYears === null}>All</button>
+            </div>
+          </div>
           <div className="tbl">
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 520 }}>
               <thead>
@@ -561,7 +521,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
                 </tr>
               </thead>
               <tbody>
-                {yearly.map((d, i) => (
+                {yearly.filter(d => tableYears == null || d.m <= tableYears * 12).map((d, i) => (
                   <tr key={d.m} style={{
                     borderBottom: `1px solid ${COLORS.border}18`,
                     background: i % 2 === 0 ? `${COLORS.surface}80` : 'transparent',

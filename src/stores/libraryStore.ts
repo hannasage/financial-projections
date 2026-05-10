@@ -1,17 +1,37 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { Debt, Purchase, Raise, Scenario } from '../lib/types';
+import { getTodayStartDate } from '../lib/constants';
 
 export type Profile = Pick<Scenario,
-  'envelope' | 'startSavings' | 'startAge' | 'horizonYears' |
+  'startMonthIdx' | 'startYear' | 'envelope' | 'startSavings' | 'startAge' | 'horizonYears' |
   'returnMode' | 'hysaRate' | 'taxPct' | 'baseSalary' | 'housingCost'
 >;
 
+const today = getTodayStartDate();
 const DEFAULT_PROFILE: Profile = {
+  startMonthIdx: today.startMonthIdx,
+  startYear: today.startYear,
   envelope: 1_000, startSavings: 0, startAge: 30, horizonYears: 10,
   returnMode: 'hysa', hysaRate: 4.5, taxPct: 25,
   baseSalary: 60_000, housingCost: 1_200,
 };
+
+function normalizeProfile(input?: Partial<Profile> | null): Profile {
+  const from = input ?? {};
+  const normalizedMonth = Number.isFinite(Number(from.startMonthIdx))
+    ? Math.max(0, Math.min(11, Number(from.startMonthIdx)))
+    : today.startMonthIdx;
+  const normalizedYear = Number.isFinite(Number(from.startYear))
+    ? Number(from.startYear)
+    : today.startYear;
+  return {
+    ...DEFAULT_PROFILE,
+    ...from,
+    startMonthIdx: normalizedMonth,
+    startYear: normalizedYear,
+  };
+}
 
 interface LibraryState {
   profile:    Profile;
@@ -34,8 +54,8 @@ export const useLibraryStore = create<LibraryState>()(
   devtools(
     persist(
       (set) => ({
-        profile:    DEFAULT_PROFILE,
-        setProfile: (patch) => set(s => ({ profile: { ...s.profile, ...patch } })),
+        profile:    normalizeProfile(DEFAULT_PROFILE),
+        setProfile: (patch) => set(s => ({ profile: normalizeProfile({ ...s.profile, ...patch }) })),
 
         debts:     [],
         purchases: [],
@@ -62,7 +82,18 @@ export const useLibraryStore = create<LibraryState>()(
         removeRaise: (id) =>
           set(s => ({ raises: s.raises.filter(r => r.id !== id) })),
       }),
-      { name: 'projection-library' },
+      {
+        name: 'projection-library',
+        merge: (persistedState, currentState) => {
+          const persisted = (persistedState as Partial<LibraryState> | undefined) ?? {};
+          const current = currentState as LibraryState;
+          return {
+            ...current,
+            ...persisted,
+            profile: normalizeProfile(persisted.profile ?? current.profile),
+          };
+        },
+      },
     ),
     { name: 'LibraryStore' },
   ),

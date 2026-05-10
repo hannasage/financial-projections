@@ -3,7 +3,7 @@ import { useColors } from '../stores/themeStore';
 import { useAuthStore } from '../stores/authStore';
 import { useLibraryStore } from '../stores/libraryStore';
 import { stdPayment, money } from '../lib/finance';
-import { START_YEAR } from '../lib/constants';
+import { MONTHS } from '../lib/constants';
 import { LOCAL_MODE } from '../lib/mode';
 import { DebtItem } from '../components/plan/DebtItem';
 import { PurchaseItem } from '../components/plan/PurchaseItem';
@@ -51,7 +51,7 @@ export default function IO() {
 
   const handleAddDebt = () => {
     library.addDebt({
-      label: '', payment: 200, payoffMonthIdx: 0, payoffYear: 2027,
+      label: '', payment: 200, payoffMonthIdx: p.startMonthIdx, payoffYear: p.startYear + 1,
     });
   };
 
@@ -59,7 +59,7 @@ export default function IO() {
     const loanAmount = 30_000, rate = 7, termMonths = 60, multiplier = 1;
     library.addPurchase({
       type: 'loan', label: '',
-      year: START_YEAR + 2, monthIdx: 0,
+      year: p.startYear + 2, monthIdx: p.startMonthIdx,
       downPayment: 0, loanAmount, rate, termMonths, multiplier,
       payment: Math.round(stdPayment(loanAmount, rate, termMonths)),
     });
@@ -67,7 +67,7 @@ export default function IO() {
 
   const handleAddRaise = () => {
     library.addRaise({
-      year: 2027, monthIdx: 0, salary: 70_000, baseSalary: 60_000,
+      year: p.startYear + 1, monthIdx: p.startMonthIdx, salary: 70_000, baseSalary: p.baseSalary,
     });
   };
 
@@ -157,12 +157,23 @@ export default function IO() {
 
           {/* Numeric grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginTop: 14 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <label htmlFor="io-start-month" style={labelStyle}>Start Month</label>
+              <select id="io-start-month" value={p.startMonthIdx} onChange={e => sp({ startMonthIdx: +e.target.value })} style={{ ...field, width: '100%' }}>
+                {MONTHS.map((mo, i) => <option key={mo} value={i}>{mo}</option>)}
+              </select>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <label htmlFor="io-start-year" style={labelStyle}>Start Year</label>
+              <input id="io-start-year" type="number" value={p.startYear} min={2010} max={2100} step={1}
+                onChange={e => sp({ startYear: +e.target.value })}
+                style={{ ...field, width: '100%' }} />
+            </div>
             {([
               { id: 'io-age',     label: 'Current Age',      key: 'startAge',     step: 1,     min: 18 },
               { id: 'io-horizon', label: 'Horizon (years)',   key: 'horizonYears', step: 1,     min: 1  },
               { id: 'io-salary',  label: 'Base Salary ($)',   key: 'baseSalary',   step: 5_000, min: 0  },
               { id: 'io-rent',    label: 'Monthly Rent ($)',  key: 'housingCost',  step: 50,    min: 0  },
-              { id: 'io-tax',     label: 'Effective Tax (%)', key: 'taxPct',       step: 1,     min: 0  },
             ] as const).map(({ id, label, key, step, min }) => (
               <div key={id} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 <label htmlFor={id} style={labelStyle}>{label}</label>
@@ -217,6 +228,7 @@ export default function IO() {
             <DebtItem
               key={d.id}
               d={d}
+              startYear={p.startYear}
               onChange={patch => library.updateDebt(d.id, patch)}
               onRemove={() => library.removeDebt(d.id)}
             />
@@ -241,6 +253,8 @@ export default function IO() {
             <PurchaseItem
               key={pur.id}
               p={pur}
+              startYear={p.startYear}
+              startMonthIdx={p.startMonthIdx}
               housingCost={library.profile.housingCost}
               onChange={patch => library.updatePurchase(pur.id, patch)}
               onRemove={() => library.removePurchase(pur.id)}
@@ -266,7 +280,8 @@ export default function IO() {
             <RaiseItem
               key={r.id}
               r={r}
-              taxPct={25}
+              startYear={p.startYear}
+              taxPct={p.taxPct}
               baseSalary={r.baseSalary}
               onChange={patch => library.updateRaise(r.id, patch)}
               onRemove={() => library.removeRaise(r.id)}

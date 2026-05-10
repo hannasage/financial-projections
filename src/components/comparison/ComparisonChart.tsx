@@ -3,7 +3,6 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { START_YEAR } from '../../lib/constants';
 import { useColors } from '../../stores/themeStore';
 import { shortK, money, getReturnRate } from '../../lib/finance';
 import { simulate } from '../../lib/simulate';
@@ -55,32 +54,39 @@ export function ComparisonChart({ plans, activePlanIds, clipYears }: Props) {
   const COLORS      = useColors();
   const library     = useLibraryStore();
   const activePlans = plans.filter(p => activePlanIds.has(p.id));
+  const safeStartYear = Number.isFinite(Number(library.profile.startYear))
+    ? Number(library.profile.startYear)
+    : new Date().getFullYear();
+  const safeStartMonthIdx = Number.isFinite(Number(library.profile.startMonthIdx))
+    ? Math.max(0, Math.min(11, Number(library.profile.startMonthIdx)))
+    : new Date().getMonth();
 
   const simulations = useMemo(() => {
     const map: Record<string, ReturnType<typeof simulate>> = {};
     for (const plan of activePlans) {
       const resolved   = mergeIntoScenario(plan.scenario, library);
-      const returnRate = getReturnRate(plan.scenario);
+      const returnRate = getReturnRate(resolved);
       map[plan.id] = simulate(resolved, returnRate);
     }
     return map;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePlans.map(p => p.id + p.updated).join(','), library]);
 
-  const maxHorizon = Math.max(0, ...activePlans.map(p => p.scenario.horizonYears));
+  const maxHorizon = Math.max(0, ...activePlans.map(p => mergeIntoScenario(p.scenario, library).horizonYears));
   const clipped    = clipYears != null ? Math.min(clipYears, maxHorizon) : maxHorizon;
-  const minYr      = START_YEAR;
-  const maxYr      = START_YEAR + clipped;
+  const startDecimalYr = safeStartYear + safeStartMonthIdx / 12;
+  const minYr      = startDecimalYr - 1 / 12;
+  const maxYr      = startDecimalYr + clipped;
 
   const chartData = useMemo(() => {
     if (activePlans.length === 0) return [];
     const refPlan = activePlans.reduce((a, b) =>
-      a.scenario.horizonYears >= b.scenario.horizonYears ? a : b,
+      (simulations[a.id]?.length ?? 0) >= (simulations[b.id]?.length ?? 0) ? a : b,
     );
     const maxM   = clipped * 12;
     const refSim = simulations[refPlan.id] ?? [];
     return refSim.filter(row => row.m <= maxM).map(row => {
-      const decimalYr = START_YEAR + row.m / 12;
+      const decimalYr = startDecimalYr + row.m / 12;
       const point: Record<string, number | string> = { decimalYr };
       for (const plan of activePlans) {
         const sim   = simulations[plan.id] ?? [];
@@ -89,7 +95,7 @@ export function ComparisonChart({ plans, activePlanIds, clipYears }: Props) {
       }
       return point;
     });
-  }, [activePlans, simulations, clipped]);
+  }, [activePlans, simulations, clipped, startDecimalYr]);
 
   if (activePlans.length === 0) {
     return (

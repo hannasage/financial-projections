@@ -37,7 +37,7 @@ export default function Dashboard() {
   const [clipYears,     setClipYears]     = useState<number | null>(null);
 
   const maxHorizon  = useMemo(() => plans.reduce((mx, p) => Math.max(mx, p.scenario.horizonYears), 0), [plans]);
-  const clipOptions = useMemo(() => [1, 3, 5, 10].filter(v => v < maxHorizon), [maxHorizon]);
+  const clipOptions = useMemo(() => [1, 3, 5, 7, 10].filter(v => v < maxHorizon), [maxHorizon]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),

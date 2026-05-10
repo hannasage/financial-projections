@@ -76,9 +76,9 @@ export const THEMES: Theme[] = [
     name: 'Neon Arcade',
     isDark: true,
     colors: {
-      bg: '#09091a', surface: '#12122e', faint: '#0d0d24', border: '#20205a',
-      text: '#f0eeff', muted: '#8888cc', accent: '#ffbe0b', dim: '#d4a009',
-      blue: '#3a86ff', orange: '#fb5607', red: '#ff006e', purple: '#8338ec',
+      bg: '#0f0f23', surface: '#16162f', faint: '#121227', border: '#2c2c58',
+      text: '#f4f4ff', muted: '#9aa1d8', accent: '#00f5d4', dim: '#00c2a7',
+      blue: '#4cc9f0', orange: '#ff9e00', red: '#ff4d6d', purple: '#b5179e',
       textOnAccent: '#09091a',
     },
     planColors: [
@@ -99,9 +99,9 @@ export const THEMES: Theme[] = [
     name: 'Deep Forest',
     isDark: true,
     colors: {
-      bg: '#0b1a0d', surface: '#102514', faint: '#0d1f10', border: '#1d3d23',
-      text: '#edf5e8', muted: '#78aa58', accent: '#a7c957', dim: '#8aa844',
-      blue: '#5b9cf6', orange: '#fb8500', red: '#bc4749', purple: '#c084fc',
+      bg: '#0d1612', surface: '#13211a', faint: '#101c16', border: '#264133',
+      text: '#e8f6ee', muted: '#8ab89c', accent: '#80ed99', dim: '#57cc99',
+      blue: '#4ea8de', orange: '#e9a03b', red: '#ef476f', purple: '#b388eb',
       textOnAccent: '#0b1a0d',
     },
     planColors: [
@@ -122,9 +122,9 @@ export const THEMES: Theme[] = [
     name: 'Ember Tide',
     isDark: true,
     colors: {
-      bg: '#001524', surface: '#062337', faint: '#041c2e', border: '#0e3650',
-      text: '#ffecd1', muted: '#8ab5c5', accent: '#ff7d00', dim: '#d46800',
-      blue: '#15616d', orange: '#ff7d00', red: '#e05020', purple: '#9070c8',
+      bg: '#14111a', surface: '#1f1a29', faint: '#1a1623', border: '#3a2f4d',
+      text: '#f8f1ff', muted: '#b4a7c7', accent: '#ff9f1c', dim: '#d67f00',
+      blue: '#5e81f4', orange: '#ff9f1c', red: '#ff5d73', purple: '#c77dff',
       textOnAccent: '#001524',
     },
     planColors: [
@@ -168,9 +168,9 @@ export const THEMES: Theme[] = [
     name: 'Dusk Protocol',
     isDark: true,
     colors: {
-      bg: '#12122a', surface: '#1c1c42', faint: '#171735', border: '#2a2a58',
-      text: '#fffffb', muted: '#9898c8', accent: '#ffc145', dim: '#d4a030',
-      blue: '#5b9cf6', orange: '#ff9640', red: '#ff6b6c', purple: '#8878cc',
+      bg: '#1b1f2a', surface: '#242b3a', faint: '#212737', border: '#3a435a',
+      text: '#e5e9f0', muted: '#a7b0c0', accent: '#88c0d0', dim: '#5e81ac',
+      blue: '#81a1c1', orange: '#d08770', red: '#bf616a', purple: '#b48ead',
       textOnAccent: '#12122a',
     },
     planColors: [
@@ -191,9 +191,9 @@ export const THEMES: Theme[] = [
     name: 'Pillow Fort',
     isDark: true,
     colors: {
-      bg: '#1c0d38', surface: '#261545', faint: '#1f1040', border: '#3a1d6a',
-      text: '#fffdf5', muted: '#c0a8d8', accent: '#bdb2ff', dim: '#a09ae0',
-      blue: '#a0c4ff', orange: '#ffd6a5', red: '#ffadad', purple: '#ffc6ff',
+      bg: '#241529', surface: '#2e1d34', faint: '#29192f', border: '#4b3155',
+      text: '#fdebf6', muted: '#c7a9c4', accent: '#f4a6cf', dim: '#df7fb7',
+      blue: '#8ecae6', orange: '#f6bd60', red: '#e76f89', purple: '#b392f0',
       textOnAccent: '#1c0d38',
     },
     planColors: [
@@ -214,9 +214,9 @@ export const THEMES: Theme[] = [
     name: 'Coastal Day',
     isDark: false,
     colors: {
-      bg: '#f0f8ff', surface: '#ffffff', faint: '#e4f4fc', border: '#c0d8f0',
-      text: '#023047', muted: '#2d6888', accent: '#0e7490', dim: '#0a5e73',
-      blue: '#0e7490', orange: '#b35400', red: '#c01c28', purple: '#5040a0',
+      bg: '#f6f8fa', surface: '#ffffff', faint: '#f0f3f6', border: '#d0d7de',
+      text: '#24292f', muted: '#57606a', accent: '#0969da', dim: '#0550ae',
+      blue: '#218bff', orange: '#bc4c00', red: '#cf222e', purple: '#8250df',
       textOnAccent: '#ffffff',
     },
     planColors: [
@@ -237,9 +237,9 @@ export const THEMES: Theme[] = [
     name: 'Fernwood',
     isDark: false,
     colors: {
-      bg: '#f3f8ec', surface: '#ffffff', faint: '#eaf5e0', border: '#c0d8a0',
-      text: '#1a2e1c', muted: '#3d6040', accent: '#2d5a30', dim: '#245026',
-      blue: '#1848a0', orange: '#9a4000', red: '#8a1c1c', purple: '#4a2890',
+      bg: '#fdf6e3', surface: '#fffbf1', faint: '#f5ecd6', border: '#d8c8a4',
+      text: '#3b2f2f', muted: '#7a6a55', accent: '#859900', dim: '#6f8500',
+      blue: '#268bd2', orange: '#cb4b16', red: '#dc322f', purple: '#6c71c4',
       textOnAccent: '#ffffff',
     },
     planColors: [
@@ -260,9 +260,9 @@ export const THEMES: Theme[] = [
     name: 'Dust & Flame',
     isDark: false,
     colors: {
-      bg: '#fef8f0', surface: '#ffffff', faint: '#fdf0e0', border: '#e8d0a8',
-      text: '#1a0800', muted: '#6a3a10', accent: '#a04600', dim: '#844000',
-      blue: '#003049', orange: '#a04600', red: '#a01818', purple: '#4a2080',
+      bg: '#fff7ed', surface: '#fffcf7', faint: '#fff1de', border: '#f2d3a8',
+      text: '#3d2415', muted: '#8a5a3b', accent: '#f97316', dim: '#c2410c',
+      blue: '#0369a1', orange: '#f97316', red: '#dc2626', purple: '#7c3aed',
       textOnAccent: '#ffffff',
     },
     planColors: [
@@ -283,9 +283,9 @@ export const THEMES: Theme[] = [
     name: 'Confetti Studio',
     isDark: false,
     colors: {
-      bg: '#fdf5fc', surface: '#ffffff', faint: '#faecfa', border: '#e8c8e8',
-      text: '#280c20', muted: '#6a3060', accent: '#aa2078', dim: '#8a1860',
-      blue: '#1840a0', orange: '#9a4000', red: '#a01028', purple: '#5030a0',
+      bg: '#faf7ff', surface: '#ffffff', faint: '#f2edff', border: '#ddd1ff',
+      text: '#2d1b42', muted: '#6b5a8e', accent: '#7c3aed', dim: '#6d28d9',
+      blue: '#2563eb', orange: '#ea580c', red: '#db2777', purple: '#7c3aed',
       textOnAccent: '#ffffff',
     },
     planColors: [

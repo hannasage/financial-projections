@@ -1,5 +1,5 @@
 import { useColors } from '../../stores/themeStore';
-import { MONTHS, YEARS } from '../../lib/constants';
+import { MONTHS, buildYears, START_YEAR } from '../../lib/constants';
 import { money, netMonthly } from '../../lib/finance';
 import type { Raise } from '../../lib/types';
 
@@ -7,11 +7,12 @@ interface Props {
   r:          Raise;
   taxPct:     number;
   baseSalary: number;
+  startYear?: number;
   onChange:   (patch: Partial<Raise>) => void;
   onRemove:   () => void;
 }
 
-export function RaiseItem({ r, taxPct, baseSalary, onChange, onRemove }: Props) {
+export function RaiseItem({ r, taxPct, baseSalary, startYear = START_YEAR, onChange, onRemove }: Props) {
   const COLORS = useColors();
 
   const S = {
@@ -31,6 +32,7 @@ export function RaiseItem({ r, taxPct, baseSalary, onChange, onRemove }: Props) 
   };
 
   const boost = netMonthly(r.salary, taxPct) - netMonthly(baseSalary, taxPct);
+  const years = buildYears(startYear, 30);
 
   return (
     <div style={{ padding: '10px 0', borderBottom: `1px solid ${COLORS.border}20` }}>
@@ -47,7 +49,7 @@ export function RaiseItem({ r, taxPct, baseSalary, onChange, onRemove }: Props) 
           onChange={e => onChange({ year: +e.target.value })}
           style={{ ...S.field, flex: '1 1 70px' }}
         >
-          {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+          {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: '1 1 120px' }}>
           <span aria-hidden="true" style={{ color: COLORS.muted, fontSize: 10 }}>$</span>

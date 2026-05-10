@@ -1,4 +1,6 @@
 export interface Scenario {
+  startMonthIdx: number;
+  startYear:     number;
   envelope:     number;
   startSavings: number;
   startAge:     number;
@@ -60,11 +62,15 @@ export interface Raise {
 export interface SimRow {
   m:               number;
   yr:              number;
+  /** Calendar month index (0–11) for this simulation month */
+  calendarMonthIdx: number;
   age:             number;
   ageFloor:        number;
   savings:         number;
   savingsInflow:   number;
   debtBurden:      number;
+  /** Estimated total debt still owed (amortized balances + linear est. for payment-only debts) */
+  debtOutstanding: number;
   purchaseOutflow: number;
   raiseBonus:      number;
   rentRelief:      number;

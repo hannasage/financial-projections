@@ -27,7 +27,7 @@ export function ComparisonTable({ plans, activePlanIds, clipYears }: Props) {
     const map: Record<string, ReturnType<typeof simulate>> = {};
     for (const plan of activePlans) {
       const resolved   = mergeIntoScenario(plan.scenario, library);
-      const returnRate = getReturnRate(plan.scenario);
+      const returnRate = getReturnRate(resolved);
       map[plan.id] = simulate(resolved, returnRate);
     }
     return map;
@@ -37,7 +37,7 @@ export function ComparisonTable({ plans, activePlanIds, clipYears }: Props) {
   const rows = useMemo(() => {
     if (activePlans.length === 0) return [];
     const refPlan = activePlans.reduce((a, b) =>
-      a.scenario.horizonYears >= b.scenario.horizonYears ? a : b,
+      (simulations[a.id]?.length ?? 0) >= (simulations[b.id]?.length ?? 0) ? a : b,
     );
     const maxM    = clipYears != null ? clipYears * 12 : Infinity;
     const refSim  = simulations[refPlan.id] ?? [];

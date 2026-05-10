@@ -1,15 +1,16 @@
 import { useColors } from '../../stores/themeStore';
-import { MONTHS, YEARS, START_YEAR } from '../../lib/constants';
+import { MONTHS, buildYears, START_YEAR } from '../../lib/constants';
 import { money, payoffMonths, totalInterest } from '../../lib/finance';
 import type { Debt, DebtAdjustment } from '../../lib/types';
 
 interface Props {
   d:        Debt;
+  startYear?: number;
   onChange: (patch: Partial<Debt>) => void;
   onRemove: () => void;
 }
 
-export function DebtItem({ d, onChange, onRemove }: Props) {
+export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Props) {
   const COLORS = useColors();
 
   const S = {
@@ -39,7 +40,7 @@ export function DebtItem({ d, onChange, onRemove }: Props) {
   const moInterest    = apr > 0  ? (balance * apr) / 100 / 12 : 0;
   const paymentTooLow = hasStats && apr > 0 && d.payment <= moInterest;
 
-  const computedYear     = START_YEAR + Math.floor(moRemaining / 12);
+  const computedYear     = startYear + Math.floor(moRemaining / 12);
   const computedMonthIdx = moRemaining % 12;
   const computedLabel    = moRemaining >= 9999
     ? 'never'
@@ -50,8 +51,9 @@ export function DebtItem({ d, onChange, onRemove }: Props) {
     if (bal <= 0 || pmt <= 0) return patch;
     const mo = payoffMonths(bal, rate, pmt);
     if (mo <= 0 || mo >= 9999) return patch;
-    return { ...patch, payoffYear: START_YEAR + Math.floor(mo / 12), payoffMonthIdx: mo % 12 };
+    return { ...patch, payoffYear: startYear + Math.floor(mo / 12), payoffMonthIdx: mo % 12 };
   };
+  const years = buildYears(startYear, 30);
 
   return (
     <div style={{ padding: '12px 0', borderBottom: `1px solid ${COLORS.border}20` }}>
@@ -133,23 +135,12 @@ export function DebtItem({ d, onChange, onRemove }: Props) {
         </div>
       )}
 
-      {/* Row 3: manual payoff date */}
+      {/* Computed payoff (non-editable) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, color: COLORS.muted }}>Pays off</span>
-        <select
-          value={d.payoffMonthIdx} aria-label="Payoff month"
-          onChange={e => onChange({ payoffMonthIdx: +e.target.value })}
-          style={{ ...S.field, flex: '1 1 70px' }}
-        >
-          {MONTHS.map((mo, i) => <option key={i} value={i}>{mo}</option>)}
-        </select>
-        <select
-          value={d.payoffYear} aria-label="Payoff year"
-          onChange={e => onChange({ payoffYear: +e.target.value })}
-          style={{ ...S.field, flex: '1 1 70px' }}
-        >
-          {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-        </select>
+        <span style={{ ...S.field, color: COLORS.accent, minWidth: 120, textAlign: 'center' }}>
+          {hasStats && !paymentTooLow ? computedLabel : `${MONTHS[d.payoffMonthIdx]} ${d.payoffYear}`}
+        </span>
         <span style={{ fontSize: 11, color: COLORS.dim }}>→ {money(d.payment)}/mo freed</span>
       </div>
 
@@ -177,7 +168,7 @@ export function DebtItem({ d, onChange, onRemove }: Props) {
                 }}
                 style={{ ...S.field, flex: '1 1 60px' }}
               >
-                {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                {years.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span aria-hidden="true" style={{ color: COLORS.red, fontSize: 10 }}>−$</span>
@@ -207,7 +198,7 @@ export function DebtItem({ d, onChange, onRemove }: Props) {
           const adj: DebtAdjustment = {
             id:       crypto.randomUUID(),
             monthIdx: 0,
-            year:     START_YEAR + 1,
+            year:     startYear + 1,
             payment:  d.payment,
           };
           onChange({ adjustments: [...(d.adjustments ?? []), adj] });

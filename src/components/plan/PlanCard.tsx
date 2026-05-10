@@ -6,13 +6,16 @@ import { useLibraryStore } from '../../stores/libraryStore';
 import { simulate, computePayoffs } from '../../lib/simulate';
 import { money, getReturnRate } from '../../lib/finance';
 import { mergeIntoScenario } from '../../lib/resolveItems';
-import { START_YEAR, MONTHS } from '../../lib/constants';
+import { MONTHS } from '../../lib/constants';
 import type { Plan } from '../../lib/types';
 
-function absMonthToLabel(m: number): string {
+function absMonthToLabel(m: number, startYear: number, startMonthIdx: number): string {
+  const safeStartYear = Number.isFinite(startYear) ? startYear : new Date().getFullYear();
+  const safeStartMonth = Number.isFinite(startMonthIdx) ? Math.max(0, Math.min(11, startMonthIdx)) : 0;
   if (!isFinite(m) || m >= 9999) return 'never';
   if (m <= 0) return 'paid off';
-  return `${MONTHS[m % 12]} ${START_YEAR + Math.floor(m / 12)}`;
+  const absoluteMonth = safeStartMonth + m;
+  return `${MONTHS[((absoluteMonth % 12) + 12) % 12]} ${safeStartYear + Math.floor(absoluteMonth / 12)}`;
 }
 
 interface PlanCardProps {
@@ -26,26 +29,26 @@ export function PlanCard({ plan, onEdit, onDelete, onDuplicate }: PlanCardProps)
   const COLORS  = useColors();
   const library = useLibraryStore();
   const merged  = mergeIntoScenario(plan.scenario, library);
-  const rows    = simulate(merged, getReturnRate(plan.scenario));
-  const endM    = plan.scenario.horizonYears * 12;
+  const rows    = simulate(merged, getReturnRate(merged));
+  const endM    = merged.horizonYears * 12;
   const midM    = Math.round(endM / 2);
   const start   = rows[0]?.savings ?? 0;
   const mid     = rows[Math.min(midM, rows.length - 1)]?.savings ?? 0;
   const end     = rows[Math.min(endM, rows.length - 1)]?.savings ?? 0;
   const growthLabel =
-    plan.scenario.returnMode === 'none'   ? '0% cash' :
-    plan.scenario.returnMode === 'hysa'   ? `${plan.scenario.hysaRate ?? 4.5}% HYSA` :
+    merged.returnMode === 'none'   ? '0% cash' :
+    merged.returnMode === 'hysa'   ? `${merged.hysaRate ?? 4.5}% HYSA` :
                                             '7% invested';
 
   const { debtPayoffM, purchasePayoffM } = computePayoffs(merged);
   const payoffItems = [
     ...merged.debts.map(d => ({
       label: d.label || 'Debt',
-      date:  absMonthToLabel(debtPayoffM.get(d.id) ?? Infinity),
+      date:  absMonthToLabel(debtPayoffM.get(d.id) ?? Infinity, merged.startYear, merged.startMonthIdx),
     })),
     ...merged.purchases.map(p => ({
       label: p.label || (p.type === 'house' ? 'Mortgage' : 'Loan'),
-      date:  absMonthToLabel(purchasePayoffM.get(p.id) ?? Infinity),
+      date:  absMonthToLabel(purchasePayoffM.get(p.id) ?? Infinity, merged.startYear, merged.startMonthIdx),
     })),
   ];
 
@@ -120,8 +123,8 @@ export function PlanCard({ plan, onEdit, onDelete, onDuplicate }: PlanCardProps)
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4 }}>
           {[
             { label: 'Start',                                            val: start },
-            { label: `Yr ${Math.round(plan.scenario.horizonYears / 2)}`, val: mid   },
-            { label: `Yr ${plan.scenario.horizonYears}`,                 val: end   },
+            { label: `Yr ${Math.round(merged.horizonYears / 2)}`, val: mid   },
+            { label: `Yr ${merged.horizonYears}`,                 val: end   },
           ].map(({ label, val }) => (
             <div key={label} style={{ background: COLORS.faint, borderRadius: 4, padding: '6px 8px' }}>
               <div style={{ fontSize: 10, color: COLORS.muted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 3 }}>{label}</div>
@@ -133,7 +136,7 @@ export function PlanCard({ plan, onEdit, onDelete, onDuplicate }: PlanCardProps)
         {/* Badges */}
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 10, padding: '3px 7px', borderRadius: 3, border: `1px solid ${COLORS.border}`, color: COLORS.muted, letterSpacing: 1 }}>
-            {plan.scenario.horizonYears} YR
+            {merged.horizonYears} YR
           </span>
           <span style={{ fontSize: 10, padding: '3px 7px', borderRadius: 3, border: `1px solid ${plan.color}40`, color: plan.color, letterSpacing: 1 }}>
             {growthLabel.toUpperCase()}

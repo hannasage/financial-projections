@@ -20,8 +20,12 @@ export function getReturnRate(scenario: Pick<Scenario, 'returnMode' | 'hysaRate'
   return RETURN_RATES[scenario.returnMode] ?? 0;
 }
 
-export const absMo = (year: number, monthIdx: number): number =>
-  (year - START_YEAR) * 12 + monthIdx;
+export const absMo = (
+  year: number,
+  monthIdx: number,
+  startYear: number = START_YEAR,
+  startMonthIdx: number = 0,
+): number => (year - startYear) * 12 + (monthIdx - startMonthIdx);
 
 export const money = (n: number): string =>
   `$${Math.round(n).toLocaleString()}`;
@@ -72,13 +76,17 @@ export const totalInterest = (
     : Math.max(0, monthlyPmt * mo - principal);
 };
 
-export function payoffLabel(purchase: Purchase): string {
+export function payoffLabel(
+  purchase: Purchase,
+  startYear: number = START_YEAR,
+  startMonthIdx: number = 0,
+): string {
   const mo = payoffMonths(purchase.loanAmount, purchase.rate, purchase.payment);
   if (mo >= 9999) return 'never';
   if (mo === 0)   return '—';
-  const abs = absMo(purchase.year, purchase.monthIdx) + mo;
+  const abs = absMo(purchase.year, purchase.monthIdx, startYear, startMonthIdx) + mo;
   if (abs <= 0) return 'already paid off';
-  const yr = START_YEAR + Math.floor(abs / 12);
+  const yr = startYear + Math.floor(abs / 12);
   const mi = ((abs % 12) + 12) % 12;
   return `${MONTHS[mi]} ${yr}`;
 }

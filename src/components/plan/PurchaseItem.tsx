@@ -1,8 +1,7 @@
 import { useCallback } from 'react';
 import { useColors } from '../../stores/themeStore';
-import { MONTHS, PURCHASE_YEARS } from '../../lib/constants';
+import { MONTHS, buildPurchaseYears, START_YEAR } from '../../lib/constants';
 import { absMo, money, stdPayment, payoffMonths, totalInterest, payoffLabel, remainingBalance } from '../../lib/finance';
-import { START_YEAR } from '../../lib/constants';
 import type { Purchase } from '../../lib/types';
 
 interface Props {
@@ -10,9 +9,11 @@ interface Props {
   onChange:    (patch: Partial<Purchase>) => void;
   onRemove:    () => void;
   housingCost: number;
+  startYear?:  number;
+  startMonthIdx?: number;
 }
 
-export function PurchaseItem({ p, onChange, onRemove, housingCost }: Props) {
+export function PurchaseItem({ p, onChange, onRemove, housingCost, startYear = START_YEAR, startMonthIdx = 0 }: Props) {
   const COLORS = useColors();
 
   const S = {
@@ -43,7 +44,7 @@ export function PurchaseItem({ p, onChange, onRemove, housingCost }: Props) {
 
   const isHouse      = p.type === 'house';
   const typeColor    = isHouse ? COLORS.blue : COLORS.orange;
-  const startM       = absMo(p.year, p.monthIdx);
+  const startM       = absMo(p.year, p.monthIdx, startYear, startMonthIdx);
   const isHistorical = startM < 0;
 
   // For past loans, remaining balance uses the 1× std payment as historical baseline
@@ -64,8 +65,9 @@ export function PurchaseItem({ p, onChange, onRemove, housingCost }: Props) {
   // Payoff label relative to simulation start for historical loans.
   const payoffLabelStr = isHistorical
     ? (payMo >= 9999 ? 'never' : payMo === 0 ? '—'
-        : `${MONTHS[payMo % 12]} ${START_YEAR + Math.floor(payMo / 12)}`)
-    : payoffLabel(p);
+        : `${MONTHS[payMo % 12]} ${startYear + Math.floor(payMo / 12)}`)
+    : payoffLabel(p, startYear, startMonthIdx);
+  const purchaseYears = buildPurchaseYears(startYear);
 
   const multOptions = [
     { mult: 1,   label: '1×',   color: COLORS.blue   },
@@ -164,7 +166,7 @@ export function PurchaseItem({ p, onChange, onRemove, housingCost }: Props) {
           onChange={e => onChange({ year: +e.target.value })}
           style={{ ...S.field, flex: '1 1 70px' }}
         >
-          {PURCHASE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+          {purchaseYears.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
         {isHistorical && !alreadyDone && (
           <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 3, border: `1px solid ${COLORS.blue}50`, color: COLORS.blue, letterSpacing: 1, whiteSpace: 'nowrap' }}>

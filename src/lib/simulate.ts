@@ -1,11 +1,12 @@
 import type { Scenario, SimRow, Debt } from './types';
 import { absMo, netMonthly, payoffMonths, stdPayment, remainingBalance } from './finance';
+import { getTodayStartDate } from './constants';
 
-function effectivePayment(d: Debt, m: number): number {
+function effectivePayment(d: Debt, m: number, startYear: number, startMonthIdx: number): number {
   if (!d.adjustments?.length) return d.payment;
   let payment = d.payment;
   for (const a of d.adjustments) {
-    if (m >= absMo(a.year, a.monthIdx)) payment = a.payment;
+    if (m >= absMo(a.year, a.monthIdx, startYear, startMonthIdx)) payment = a.payment;
   }
   return payment;
 }
@@ -15,20 +16,21 @@ export function simulate(
   returnRate: number,
 ): SimRow[] {
   const {
-    envelope, startSavings, startAge,
+    envelope, startSavings, startAge, startYear, startMonthIdx,
     debts, purchases, raises, taxPct, horizonYears, housingCost,
     cascadeDebts,
   } = scenario;
+  const today = getTodayStartDate();
+  const safeStartYear = Number.isFinite(startYear) ? startYear : today.startYear;
+  const safeStartMonthIdx = Number.isFinite(startMonthIdx) ? Math.max(0, Math.min(11, startMonthIdx)) : today.startMonthIdx;
 
   const totalMonths = horizonYears * 12;
-  const START_YEAR  = 2026;
-
   const sortedRaises = [...raises].sort(
-    (a, b) => absMo(a.year, a.monthIdx) - absMo(b.year, b.monthIdx),
+    (a, b) => absMo(a.year, a.monthIdx, safeStartYear, safeStartMonthIdx) - absMo(b.year, b.monthIdx, safeStartYear, safeStartMonthIdx),
   );
 
   const purchaseMeta = purchases.map(p => {
-    const startM = absMo(p.year, p.monthIdx);
+    const startM = absMo(p.year, p.monthIdx, safeStartYear, safeStartMonthIdx);
     if (startM >= 0) {
       return { ...p, startM, payoffM: startM + payoffMonths(p.loanAmount, p.rate, p.payment) };
     }
@@ -54,7 +56,7 @@ export function simulate(
         debt:         d,
         payment:      d.payment,
         apr:          d.apr ?? 0,
-        fixedPayoffM: absMo(d.payoffYear, d.payoffMonthIdx),
+        fixedPayoffM: absMo(d.payoffYear, d.payoffMonthIdx, safeStartYear, safeStartMonthIdx),
         hasBalance:   (d.balance ?? 0) > 0,
         dynBal:       d.balance ?? 0,
         done:         false,
@@ -65,15 +67,26 @@ export function simulate(
   let savings = startSavings;
   const rows: SimRow[] = [];
 
+  // Month-by-month outstanding balances for visualization (non-cascade path).
+  type NonCascadeDebtState = { dynBal: number; hasBal: boolean; payoffM: number };
+  const ncDebtBal: NonCascadeDebtState[] | null = !debtTrackers && debts.length > 0
+    ? debts.map(d => ({
+        dynBal: Math.max(0, d.balance ?? 0),
+        hasBal: (d.balance ?? 0) > 0,
+        payoffM: absMo(d.payoffYear, d.payoffMonthIdx, safeStartYear, safeStartMonthIdx),
+      }))
+    : null;
+
   for (let m = 0; m <= totalMonths; m++) {
-    const yr  = START_YEAR + Math.floor(m / 12);
+    const yr  = safeStartYear + Math.floor((safeStartMonthIdx + m) / 12);
+    const calendarMonthIdx = ((safeStartMonthIdx + m) % 12 + 12) % 12;
     const age = startAge + m / 12;
 
     let raiseBonus = 0;
     if (baseSalary !== null && sortedRaises.length > 0) {
       let currentSalary = baseSalary;
       for (const r of sortedRaises) {
-        if (m >= absMo(r.year, r.monthIdx)) currentSalary = r.salary;
+        if (m >= absMo(r.year, r.monthIdx, safeStartYear, safeStartMonthIdx)) currentSalary = r.salary;
         else break;
       }
       raiseBonus = Math.max(
@@ -86,7 +99,7 @@ export function simulate(
     if (debtTrackers) {
       // Update each tracker's payment to reflect any adjustment active this month.
       for (const dt of debtTrackers) {
-        if (!dt.done) dt.payment = effectivePayment(dt.debt, m);
+        if (!dt.done) dt.payment = effectivePayment(dt.debt, m, safeStartYear, safeStartMonthIdx);
       }
       // Cascade mode: pool freed payments from paid-off debts → apply to remaining debts.
       let pool = 0;
@@ -114,7 +127,7 @@ export function simulate(
       debtBurden = debtTrackers.some(dt => !dt.done) ? currentBudget : 0;
     } else {
       debtBurden = debts.reduce(
-        (sum, d) => sum + (m < absMo(d.payoffYear, d.payoffMonthIdx) ? effectivePayment(d, m) : 0),
+        (sum, d) => sum + (m < absMo(d.payoffYear, d.payoffMonthIdx, safeStartYear, safeStartMonthIdx) ? effectivePayment(d, m, safeStartYear, safeStartMonthIdx) : 0),
         0,
       );
     }
@@ -139,7 +152,8 @@ export function simulate(
 
     if (downThisMonth > 0) savings -= downThisMonth;
 
-    const effectiveEnv  = envelope + raiseBonus + rentRelief;
+    // Housing is a baseline monthly expense; buying a house offsets it via rentRelief.
+    const effectiveEnv  = envelope + raiseBonus - housingCost + rentRelief;
     const savingsInflow = effectiveEnv - debtBurden - purchaseOutflow;
 
     savings =
@@ -147,14 +161,52 @@ export function simulate(
         ? savings * (1 + returnRate / 12) + savingsInflow
         : savings + savingsInflow;
 
+    let debtOutstanding = 0;
+    if (debtTrackers && debtTrackers.length > 0) {
+      for (const dt of debtTrackers) {
+        if (dt.done) continue;
+        if (dt.hasBalance) {
+          debtOutstanding += dt.dynBal;
+        } else {
+          const rem = dt.fixedPayoffM - m;
+          if (rem > 0) debtOutstanding += dt.payment * rem;
+        }
+      }
+    } else if (ncDebtBal && debts.length > 0) {
+      for (let i = 0; i < debts.length; i++) {
+        const d = debts[i];
+        const st = ncDebtBal[i];
+        if (m >= st.payoffM) {
+          st.dynBal = 0;
+          continue;
+        }
+        if (!st.hasBal) continue;
+        const pmt = effectivePayment(d, m, safeStartYear, safeStartMonthIdx);
+        const rMo = (d.apr ?? 0) / 100 / 12;
+        st.dynBal = rMo > 0
+          ? Math.max(0, st.dynBal * (1 + rMo) - pmt)
+          : Math.max(0, st.dynBal - pmt);
+      }
+      for (let i = 0; i < debts.length; i++) {
+        const d = debts[i];
+        const st = ncDebtBal[i];
+        if (m >= st.payoffM) continue;
+        const pmt = effectivePayment(d, m, safeStartYear, safeStartMonthIdx);
+        if (st.hasBal) debtOutstanding += st.dynBal;
+        else debtOutstanding += pmt * Math.max(0, st.payoffM - m);
+      }
+    }
+
     rows.push({
       m,
       yr,
+      calendarMonthIdx,
       age:             parseFloat(age.toFixed(2)),
       ageFloor:        Math.floor(age),
       savings:         Math.round(savings),
       savingsInflow:   Math.round(savingsInflow),
       debtBurden:      Math.round(debtBurden),
+      debtOutstanding: Math.round(debtOutstanding),
       purchaseOutflow: Math.round(purchaseOutflow),
       raiseBonus:      Math.round(raiseBonus),
       rentRelief:      Math.round(rentRelief),
@@ -170,14 +222,17 @@ export function computePayoffs(scenario: Scenario): {
   debtPayoffM:     Map<string, number>;
   purchasePayoffM: Map<string, number>;
 } {
-  const { debts, purchases, cascadeDebts, horizonYears } = scenario;
+  const { debts, purchases, cascadeDebts, horizonYears, startYear, startMonthIdx } = scenario;
+  const today = getTodayStartDate();
+  const safeStartYear = Number.isFinite(startYear) ? startYear : today.startYear;
+  const safeStartMonthIdx = Number.isFinite(startMonthIdx) ? Math.max(0, Math.min(11, startMonthIdx)) : today.startMonthIdx;
   const searchMonths = horizonYears * 12 + 120;
 
   const debtPayoffM     = new Map<string, number>();
   const purchasePayoffM = new Map<string, number>();
 
   for (const p of purchases) {
-    const startM = absMo(p.year, p.monthIdx);
+    const startM = absMo(p.year, p.monthIdx, safeStartYear, safeStartMonthIdx);
     if (startM >= 0) {
       purchasePayoffM.set(p.id, startM + payoffMonths(p.loanAmount, p.rate, p.payment));
     } else {
@@ -191,14 +246,14 @@ export function computePayoffs(scenario: Scenario): {
     for (const d of debts) {
       const bal = d.balance ?? 0;
       if (bal <= 0) {
-        debtPayoffM.set(d.id, absMo(d.payoffYear, d.payoffMonthIdx));
+        debtPayoffM.set(d.id, absMo(d.payoffYear, d.payoffMonthIdx, safeStartYear, safeStartMonthIdx));
         continue;
       }
       const r = (d.apr ?? 0) / 100 / 12;
       let dynBal = bal;
       let found  = false;
       for (let m = 0; m <= searchMonths; m++) {
-        const pmt = effectivePayment(d, m);
+        const pmt = effectivePayment(d, m, safeStartYear, safeStartMonthIdx);
         dynBal = r > 0 ? Math.max(0, dynBal * (1 + r) - pmt) : Math.max(0, dynBal - pmt);
         if (dynBal <= 0) { debtPayoffM.set(d.id, m); found = true; break; }
       }
@@ -213,7 +268,7 @@ export function computePayoffs(scenario: Scenario): {
       debt:         d,
       payment:      d.payment,
       apr:          d.apr ?? 0,
-      fixedPayoffM: absMo(d.payoffYear, d.payoffMonthIdx),
+      fixedPayoffM: absMo(d.payoffYear, d.payoffMonthIdx, safeStartYear, safeStartMonthIdx),
       hasBalance:   (d.balance ?? 0) > 0,
       dynBal:       d.balance ?? 0,
       done:         false,
@@ -221,7 +276,7 @@ export function computePayoffs(scenario: Scenario): {
 
     for (let m = 0; m <= searchMonths; m++) {
       for (const dt of trackers) {
-        if (!dt.done) dt.payment = effectivePayment(dt.debt, m);
+        if (!dt.done) dt.payment = effectivePayment(dt.debt, m, safeStartYear, safeStartMonthIdx);
       }
       let pool = 0;
       for (const dt of trackers) {
