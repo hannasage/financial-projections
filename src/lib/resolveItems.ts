@@ -68,6 +68,8 @@ export function mergeIntoScenario(scenario: Scenario, library: LibraryData): Sce
       housingCost: profile.housingCost,
       monthlyAllowance: profile.monthlyAllowance,
       inflationPctAnnual: profile.inflationPctAnnual,
+      retirementAge: profile.retirementAge,
+      retirementEnvelope: profile.retirementEnvelope,
     } : {}),
     debts,
     purchases,

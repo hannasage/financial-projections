@@ -1,6 +1,6 @@
 import { useColors } from '../../stores/themeStore';
 import { MONTHS, buildPurchaseYears } from '../../lib/constants';
-import type { Investment } from '../../lib/types';
+import type { Investment, InvestmentContributionAdjustment } from '../../lib/types';
 
 interface Props {
   i:          Investment;
@@ -33,6 +33,29 @@ export function InvestmentItem({ i, onChange, onRemove, planStartYear, planStart
   const startM = i.startMonthIdx ?? planStartMonthIdx;
   const yearOpts = buildPurchaseYears(planStartYear);
   const hasSale = i.sellYear != null && i.sellMonthIdx != null;
+  const adjustments = i.adjustments ?? [];
+
+  const upsertAdjustments = (next: InvestmentContributionAdjustment[]) => {
+    onChange({ adjustments: next.length > 0 ? next : undefined });
+  };
+  const addAdjustment = () => {
+    upsertAdjustments([
+      ...adjustments,
+      {
+        id: crypto.randomUUID(),
+        year: planStartYear + 1,
+        monthIdx: planStartMonthIdx,
+        monthlyContribution: i.monthlyContribution,
+        lumpSum: 0,
+      },
+    ]);
+  };
+  const changeAdjustment = (id: string, patch: Partial<InvestmentContributionAdjustment>) => {
+    upsertAdjustments(adjustments.map(a => (a.id === id ? { ...a, ...patch } : a)));
+  };
+  const removeAdjustment = (id: string) => {
+    upsertAdjustments(adjustments.filter(a => a.id !== id));
+  };
 
   return (
     <div style={{
@@ -202,8 +225,123 @@ export function InvestmentItem({ i, onChange, onRemove, planStartYear, planStart
         )}
       </div>
 
+      <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${COLORS.border}55` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <div style={S.label}>Contribution adjustments</div>
+          <button
+            type="button"
+            onClick={addAdjustment}
+            style={{
+              ...S.field,
+              padding: '4px 8px',
+              fontSize: 10,
+              color: COLORS.muted,
+              background: 'transparent',
+              cursor: 'pointer',
+            }}
+          >
+            + Add
+          </button>
+        </div>
+        <p style={{ fontSize: 10, color: COLORS.muted, margin: '0 0 8px', lineHeight: 1.45 }}>
+          Use adjustments to increase/decrease monthly buys from a date onward, and/or drop one-time lump sums.
+        </p>
+        {adjustments.length === 0 && (
+          <div style={{ fontSize: 10, color: COLORS.muted, fontStyle: 'italic' }}>No adjustments scheduled.</div>
+        )}
+        {adjustments.map(adj => (
+          <div
+            key={adj.id}
+            style={{
+              marginTop: 8,
+              border: `1px solid ${COLORS.border}`,
+              borderRadius: 6,
+              padding: 10,
+              background: COLORS.faint,
+            }}
+          >
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8, alignItems: 'end' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={S.label} htmlFor={`adjm-${adj.id}`}>Month</label>
+                <select
+                  id={`adjm-${adj.id}`}
+                  value={adj.monthIdx}
+                  onChange={e => changeAdjustment(adj.id, { monthIdx: +e.target.value })}
+                  style={{ ...S.field, width: '100%' }}
+                >
+                  {MONTHS.map((mo, idx) => (
+                    <option key={`${adj.id}-m-${mo}`} value={idx}>{mo}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={S.label} htmlFor={`adjy-${adj.id}`}>Year</label>
+                <select
+                  id={`adjy-${adj.id}`}
+                  value={adj.year}
+                  onChange={e => changeAdjustment(adj.id, { year: +e.target.value })}
+                  style={{ ...S.field, width: '100%' }}
+                >
+                  {yearOpts.map(y => (
+                    <option key={`${adj.id}-y-${y}`} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={S.label} htmlFor={`adjc-${adj.id}`}>Monthly add ($)</label>
+                <input
+                  id={`adjc-${adj.id}`}
+                  type="number"
+                  min={0}
+                  step={25}
+                  value={adj.monthlyContribution ?? ''}
+                  placeholder="keep prior"
+                  onChange={e => {
+                    const v = e.target.value;
+                    changeAdjustment(adj.id, { monthlyContribution: v === '' ? undefined : Math.max(0, +v) });
+                  }}
+                  style={{ ...S.field, width: '100%' }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={S.label} htmlFor={`adjl-${adj.id}`}>Lump sum ($)</label>
+                <input
+                  id={`adjl-${adj.id}`}
+                  type="number"
+                  min={0}
+                  step={100}
+                  value={adj.lumpSum ?? ''}
+                  placeholder="0"
+                  onChange={e => {
+                    const v = e.target.value;
+                    changeAdjustment(adj.id, { lumpSum: v === '' ? undefined : Math.max(0, +v) });
+                  }}
+                  style={{ ...S.field, width: '100%' }}
+                />
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+              <button
+                type="button"
+                onClick={() => removeAdjustment(adj.id)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: COLORS.muted,
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  padding: 0,
+                }}
+              >
+                Remove adjustment
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
       <p style={{ fontSize: 10, color: COLORS.muted, marginTop: 10, lineHeight: 1.45 }}>
-        Starting balance is funded from liquid savings once, in the start month (same as moving cash into the account). Monthly adds come from the envelope after debts and purchase loans. Invested balances count toward net worth, not liquidity until sold (sale proceeds go to cash).
+        Starting balance is funded from liquid savings once, in the start month (same as moving cash into the account). Monthly adds and scheduled lump sums come from the envelope path after debts and purchase loans. Invested balances count toward net worth, not liquidity until sold (sale proceeds go to cash).
       </p>
     </div>
   );

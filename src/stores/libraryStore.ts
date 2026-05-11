@@ -6,7 +6,7 @@ import { getTodayStartDate } from '../lib/constants';
 export type Profile = Pick<Scenario,
   'startMonthIdx' | 'startYear' | 'envelope' | 'startSavings' | 'startAge' | 'horizonYears' |
   'returnMode' | 'hysaRate' | 'taxPct' | 'baseSalary' | 'housingCost' | 'monthlyAllowance' |
-  'inflationPctAnnual'
+  'inflationPctAnnual' | 'retirementAge' | 'retirementEnvelope'
 >;
 
 const today = getTodayStartDate();
@@ -17,6 +17,8 @@ const DEFAULT_PROFILE: Profile = {
   returnMode: 'hysa', hysaRate: 4.5, taxPct: 25,
   baseSalary: 60_000, housingCost: 1_200, monthlyAllowance: 0,
   inflationPctAnnual: 0,
+  retirementAge: undefined,
+  retirementEnvelope: undefined,
 };
 
 export function normalizeProfile(input?: Partial<Profile> | null): Profile {
@@ -31,12 +33,22 @@ export function normalizeProfile(input?: Partial<Profile> | null): Profile {
   const inflationPctAnnual = Number.isFinite(infRaw)
     ? Math.min(50, Math.max(0, infRaw))
     : DEFAULT_PROFILE.inflationPctAnnual ?? 0;
+  const retirementAgeRaw = Number(from.retirementAge);
+  const retirementAge = Number.isFinite(retirementAgeRaw)
+    ? Math.min(120, Math.max(0, retirementAgeRaw))
+    : undefined;
+  const retirementEnvelopeRaw = Number(from.retirementEnvelope);
+  const retirementEnvelope = Number.isFinite(retirementEnvelopeRaw)
+    ? Math.max(0, retirementEnvelopeRaw)
+    : undefined;
   return {
     ...DEFAULT_PROFILE,
     ...from,
     startMonthIdx: normalizedMonth,
     startYear: normalizedYear,
     inflationPctAnnual,
+    retirementAge,
+    retirementEnvelope,
   };
 }
 

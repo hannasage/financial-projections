@@ -29,6 +29,7 @@ export default function IO() {
 
   const p = library.profile;
   const sp = (patch: Partial<typeof p>) => library.setProfile(patch);
+  const hasRetirement = p.retirementAge != null;
 
   const labelStyle: React.CSSProperties = {
     fontSize: 10, letterSpacing: 2, color: COLORS.muted,
@@ -270,6 +271,61 @@ export default function IO() {
                 Each projection year (every 12 months from plan start), bump <strong style={{ color: COLORS.text }}>{money(p.envelope)}/mo</strong>. Use <strong style={{ color: COLORS.text }}>0%</strong> to keep envelope flat.
               </span>
             </div>
+          </div>
+
+          <div style={{ marginTop: 14, borderTop: `1px solid ${COLORS.border}`, paddingTop: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+              <span style={labelStyle}>Retirement switch</span>
+              <button
+                type="button"
+                aria-pressed={hasRetirement}
+                onClick={() => {
+                  if (hasRetirement) {
+                    sp({ retirementAge: undefined, retirementEnvelope: undefined });
+                  } else {
+                    sp({
+                      retirementAge: Math.max(p.startAge + 1, 65),
+                      retirementEnvelope: Math.round(Math.max(0, p.envelope * 0.8)),
+                    });
+                  }
+                }}
+                style={{ ...chip(hasRetirement), flex: '0 0 auto' }}
+              >
+                {hasRetirement ? 'Retirement on' : 'Enable retirement'}
+              </button>
+            </div>
+            <p style={{ fontSize: 10, color: COLORS.muted, marginTop: 8, lineHeight: 1.55 }}>
+              When enabled, the simulation switches at retirement age from your working envelope to the retirement envelope.
+            </p>
+            {hasRetirement && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginTop: 10 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <label htmlFor="io-ret-age" style={labelStyle}>Retirement age</label>
+                  <input
+                    id="io-ret-age"
+                    type="number"
+                    value={p.retirementAge ?? ''}
+                    min={Math.max(0, p.startAge)}
+                    max={120}
+                    step={1}
+                    onChange={e => sp({ retirementAge: e.target.value === '' ? undefined : Math.max(0, +e.target.value) })}
+                    style={{ ...field, width: '100%' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <label htmlFor="io-ret-env" style={labelStyle}>Retirement envelope ($/mo)</label>
+                  <input
+                    id="io-ret-env"
+                    type="number"
+                    value={p.retirementEnvelope ?? ''}
+                    min={0}
+                    step={50}
+                    onChange={e => sp({ retirementEnvelope: e.target.value === '' ? undefined : Math.max(0, +e.target.value) })}
+                    style={{ ...field, width: '100%' }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Numeric grid */}

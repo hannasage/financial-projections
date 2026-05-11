@@ -1,5 +1,5 @@
 import type {
-  Debt, DebtAdjustment, Purchase, Raise, Investment, RecurringCharge, Scenario, Plan,
+  Debt, DebtAdjustment, Purchase, Raise, Investment, RecurringCharge, Scenario, Plan, InvestmentContributionAdjustment,
 } from './types';
 
 function clampFinite(n: unknown, min: number, max: number, fallback = 0): number {
@@ -105,6 +105,25 @@ export function sanitizeInvestment(raw: unknown): Investment | null {
   if (r.sellMonthIdx != null) inv.sellMonthIdx = clampInt(r.sellMonthIdx, 0, 11);
   if (r.salePrice != null && Number.isFinite(Number(r.salePrice))) inv.salePrice = clampFinite(r.salePrice, 0, 1e12);
   if (r.capitalGainsTaxPct != null) inv.capitalGainsTaxPct = clampFinite(r.capitalGainsTaxPct, 0, 100);
+  if (Array.isArray(r.adjustments)) {
+    const adj = r.adjustments.map((a, idx): InvestmentContributionAdjustment | null => {
+      if (!a || typeof a !== 'object') return null;
+      const x = a as Record<string, unknown>;
+      const monthlyContribution = x.monthlyContribution != null
+        ? clampFinite(x.monthlyContribution, 0, 1e9)
+        : undefined;
+      const lumpSum = x.lumpSum != null ? clampFinite(x.lumpSum, 0, 1e12) : undefined;
+      if (monthlyContribution == null && lumpSum == null) return null;
+      return {
+        id: typeof x.id === 'string' ? x.id : `inv-adj-${id}-${idx}`,
+        monthIdx: clampInt(x.monthIdx, 0, 11),
+        year: clampFinite(x.year, 1970, 2200, new Date().getFullYear()),
+        monthlyContribution,
+        lumpSum,
+      };
+    }).filter((x): x is InvestmentContributionAdjustment => x != null);
+    if (adj.length > 0) inv.adjustments = adj;
+  }
   return inv;
 }
 
@@ -150,6 +169,8 @@ export function sanitizeScenario(raw: unknown): Scenario {
     baseSalary: clampFinite(r.baseSalary, 0, 1e12),
     housingCost: clampFinite(r.housingCost, 0, 1e9),
     monthlyAllowance: clampFinite(r.monthlyAllowance, 0, 1e9),
+    retirementAge: r.retirementAge != null ? clampFinite(r.retirementAge, 0, 120) : undefined,
+    retirementEnvelope: r.retirementEnvelope != null ? clampFinite(r.retirementEnvelope, 0, 1e9) : undefined,
     debts,
     purchases,
     raises,

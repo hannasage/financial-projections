@@ -25,6 +25,7 @@ const DEFAULT_SCENARIO: Scenario = {
   startMonthIdx: 0, startYear: 2026,
   envelope: 1_000, startSavings: 0, startAge: 30, horizonYears: 10,
   returnMode: 'hysa', taxPct: 25, baseSalary: 60_000, housingCost: 1_200, monthlyAllowance: 0,
+  retirementAge: undefined, retirementEnvelope: undefined,
   debts: [], purchases: [], raises: [],
   investments: [], recurringCharges: [],
   excludedDebtIds: [], excludedPurchaseIds: [], excludedRaiseIds: [],
@@ -191,11 +192,13 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
     baseSalary: init.baseSalary,
     housingCost: init.housingCost,
     monthlyAllowance: init.monthlyAllowance ?? 0,
+    retirementAge: init.retirementAge,
+    retirementEnvelope: init.retirementEnvelope,
     debts, cascadeDebts, purchases, raises,
     investments, recurringCharges,
     excludedDebtIds, excludedPurchaseIds, excludedRaiseIds,
     excludedInvestmentIds, excludedRecurringChargeIds,
-  }), [safeStartMonthIdx, safeStartYear, init.envelope, init.startSavings, init.startAge, init.horizonYears, init.returnMode, init.hysaRate, init.taxPct, init.baseSalary, init.housingCost, init.monthlyAllowance, debts, cascadeDebts, purchases, raises, investments, recurringCharges, excludedDebtIds, excludedPurchaseIds, excludedRaiseIds, excludedInvestmentIds, excludedRecurringChargeIds]);
+  }), [safeStartMonthIdx, safeStartYear, init.envelope, init.startSavings, init.startAge, init.horizonYears, init.returnMode, init.hysaRate, init.taxPct, init.baseSalary, init.housingCost, init.monthlyAllowance, init.retirementAge, init.retirementEnvelope, debts, cascadeDebts, purchases, raises, investments, recurringCharges, excludedDebtIds, excludedPurchaseIds, excludedRaiseIds, excludedInvestmentIds, excludedRecurringChargeIds]);
 
   const mergedScenario = useMemo(() => mergeIntoScenario(scenario, library), [scenario, library]);
   const returnRate = getReturnRate(mergedScenario);
@@ -238,7 +241,14 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
       const sellM = absMo(i.sellYear, i.sellMonthIdx, mergedScenario.startYear, mergedScenario.startMonthIdx);
       if (sellM < 0) return s;
     }
-    return s + Math.max(0, i.monthlyContribution);
+    let monthly = Math.max(0, i.monthlyContribution);
+    if (i.adjustments?.length) {
+      for (const a of i.adjustments) {
+        const when = absMo(a.year, a.monthIdx, mergedScenario.startYear, mergedScenario.startMonthIdx);
+        if (when <= 0 && a.monthlyContribution != null) monthly = Math.max(0, a.monthlyContribution);
+      }
+    }
+    return s + monthly;
   }, 0), [resolvedInvestments, mergedScenario.startYear, mergedScenario.startMonthIdx]);
   const effectiveNow = mergedScenario.envelope - mergedScenario.housingCost - allowance - nowRecurring - nowDebtBurden - nowLoanBurden - nowInvContrib;
 

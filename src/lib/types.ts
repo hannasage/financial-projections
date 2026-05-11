@@ -20,6 +20,10 @@ export interface Scenario {
   monthlyAllowance: number;
   /** Annual nominal envelope growth (each full projection year). Optional; 0 = off. */
   inflationPctAnnual?: number;
+  /** Optional retirement switch age. When reached, retirement envelope settings apply. */
+  retirementAge?: number;
+  /** Monthly envelope to use after retirement starts (defaults to working envelope if omitted). */
+  retirementEnvelope?: number;
   debts:        Debt[];
   purchases:    Purchase[];
   raises:       Raise[];
@@ -88,6 +92,18 @@ export interface Investment {
   salePrice?:          number;
   /** Capital gains tax on realized gain only: max(0, proceeds − cost basis) × pct/100. Basis = initial + contributions while held. */
   capitalGainsTaxPct?: number;
+  /** Optional contribution plan changes by month (set new monthly add and/or one-time lump sum). */
+  adjustments?: InvestmentContributionAdjustment[];
+}
+
+export interface InvestmentContributionAdjustment {
+  id:                  string;
+  monthIdx:            number;
+  year:                number;
+  /** New monthly add from this month onward (if provided). */
+  monthlyContribution?: number;
+  /** One-time add in this exact month. */
+  lumpSum?:            number;
 }
 
 export interface RecurringCharge {

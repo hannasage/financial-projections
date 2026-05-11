@@ -12,6 +12,37 @@ function effectivePayment(d: Debt, m: number, startYear: number, startMonthIdx: 
   return payment;
 }
 
+function effectiveInvestmentMonthlyContribution(
+  inv: Investment,
+  m: number,
+  startYear: number,
+  startMonthIdx: number,
+): number {
+  let contrib = Math.max(0, inv.monthlyContribution ?? 0);
+  if (!inv.adjustments?.length) return contrib;
+  for (const a of inv.adjustments) {
+    const when = absMo(a.year, a.monthIdx, startYear, startMonthIdx);
+    if (m >= when && a.monthlyContribution != null) contrib = Math.max(0, a.monthlyContribution);
+  }
+  return contrib;
+}
+
+function investmentLumpSumAtMonth(
+  inv: Investment,
+  m: number,
+  startYear: number,
+  startMonthIdx: number,
+): number {
+  if (!inv.adjustments?.length) return 0;
+  let lump = 0;
+  for (const a of inv.adjustments) {
+    if (a.lumpSum == null || a.lumpSum <= 0) continue;
+    const when = absMo(a.year, a.monthIdx, startYear, startMonthIdx);
+    if (when === m) lump += a.lumpSum;
+  }
+  return lump;
+}
+
 /** Liabilities from non-purchase debts at the start of simulation month `m` (before that month’s payments). */
 function nonPurchaseDebtOutstandingAtMonthStart(
   debts: Debt[],
@@ -59,6 +90,8 @@ export function simulate(
     envelope, startSavings, startAge, startYear, startMonthIdx,
     debts, purchases, raises, taxPct, horizonYears, housingCost, monthlyAllowance,
     cascadeDebts,
+    retirementAge,
+    retirementEnvelope,
     investments: investmentList = [],
     recurringCharges: recurringList = [],
   } = scenario;
@@ -125,6 +158,7 @@ export function simulate(
 
   const inflationPctAnnual = Math.max(0, scenario.inflationPctAnnual ?? 0);
   let envelopeLive = envelope;
+  let retirementEnvelopeLive = Math.max(0, retirementEnvelope ?? envelope);
   let savings = startSavings;
   const rows: SimRow[] = [];
 
@@ -198,11 +232,13 @@ export function simulate(
 
     if (m > 0 && m % 12 === 0 && inflationPctAnnual > 0) {
       envelopeLive *= 1 + inflationPctAnnual / 100;
+      retirementEnvelopeLive *= 1 + inflationPctAnnual / 100;
     }
 
     const yr  = safeStartYear + Math.floor((safeStartMonthIdx + m) / 12);
     const calendarMonthIdx = ((safeStartMonthIdx + m) % 12 + 12) % 12;
     const age = startAge + m / 12;
+    const retired = retirementAge != null && age >= retirementAge;
 
     let raiseBonus = 0;
     if (baseSalary !== null && sortedRaises.length > 0) {
@@ -301,10 +337,14 @@ export function simulate(
       const { startM, sellM } = invMeta[i];
       if (m < startM) continue;
       if (m > sellM) continue;
+      invContrib[i] = effectiveInvestmentMonthlyContribution(investmentList[i], m, safeStartYear, safeStartMonthIdx);
       invContribSum += invContrib[i];
     }
     // Housing + allowance + itemized recurring come out of envelope; house offsets rent via rentRelief.
-    const effectiveEnv  = envelopeLive + raiseBonus - housingCost - allowance - recurringTotal + rentRelief;
+    // After retirement age, switch to retirement envelope and stop applying raise delta.
+    const liveEnvelope = retired ? retirementEnvelopeLive : envelopeLive;
+    const streamBonus = retired ? 0 : raiseBonus;
+    const effectiveEnv  = liveEnvelope + streamBonus - housingCost - allowance - recurringTotal + rentRelief;
     const savingsInflow = effectiveEnv - debtBurden - purchaseOutflow - invContribSum;
 
     savings =
@@ -337,6 +377,12 @@ export function simulate(
       }
 
       const c = invContrib[i];
+      const lump = investmentLumpSumAtMonth(investmentList[i], m, safeStartYear, safeStartMonthIdx);
+      if (lump > 0) {
+        bal += lump;
+        invBasis[i] += lump;
+        savings -= lump;
+      }
       bal = bal * (1 + invRMonthly[i]) + c;
       invBasis[i] += c;
 
