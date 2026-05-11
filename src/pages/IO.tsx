@@ -11,6 +11,12 @@ import { RaiseItem } from '../components/plan/RaiseItem';
 import { InvestmentItem } from '../components/plan/InvestmentItem';
 import { RecurringChargeItem } from '../components/plan/RecurringChargeItem';
 import { ThemeSelector } from '../components/shared/ThemeSelector';
+import { scrollIoItemIntoViewAndFocus } from '../lib/ioScrollFocus';
+
+const ioItemAnchor: React.CSSProperties = {
+  scrollMarginTop: 24,
+  scrollMarginBottom: 100,
+};
 
 export default function IO() {
   const COLORS  = useColors();
@@ -52,35 +58,40 @@ export default function IO() {
   });
 
   const handleAddDebt = () => {
-    library.addDebt({
+    const id = library.addDebt({
       label: '', payment: 200, payoffMonthIdx: p.startMonthIdx, payoffYear: p.startYear + 1,
     });
+    scrollIoItemIntoViewAndFocus(id);
   };
 
   const handleAddPurchase = () => {
     const loanAmount = 30_000, rate = 7, termMonths = 60, multiplier = 1;
-    library.addPurchase({
+    const id = library.addPurchase({
       type: 'loan', label: '',
       year: p.startYear + 2, monthIdx: p.startMonthIdx,
       downPayment: 0, loanAmount, rate, termMonths, multiplier,
       payment: Math.round(stdPayment(loanAmount, rate, termMonths)),
     });
+    scrollIoItemIntoViewAndFocus(id);
   };
 
   const handleAddRaise = () => {
-    library.addRaise({
+    const id = library.addRaise({
       year: p.startYear + 1, monthIdx: p.startMonthIdx, salary: 70_000, baseSalary: p.baseSalary,
     });
+    scrollIoItemIntoViewAndFocus(id);
   };
 
   const handleAddRecurring = () => {
-    library.addRecurringCharge({ label: '', amount: 15 });
+    const id = library.addRecurringCharge({ label: '', amount: 15 });
+    scrollIoItemIntoViewAndFocus(id);
   };
 
   const handleAddInvestment = () => {
-    library.addInvestment({
+    const id = library.addInvestment({
       label: '', initialAmount: 0, annualReturnPct: 7, monthlyContribution: 200,
     });
+    scrollIoItemIntoViewAndFocus(id);
   };
 
   return (
@@ -231,7 +242,7 @@ export default function IO() {
         <section className="sec" aria-label="Library debts">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
             <span style={labelStyle}>💳 Debts</span>
-            <button onClick={handleAddDebt} style={addBtnStyle}>+ Add Debt</button>
+            <button type="button" onClick={handleAddDebt} style={addBtnStyle}>+ Add Debt</button>
           </div>
           <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: library.debts.length ? 8 : 0 }}>
             Standing payments that draw from your monthly envelope.
@@ -242,13 +253,14 @@ export default function IO() {
             </p>
           )}
           {library.debts.map(d => (
-            <DebtItem
-              key={d.id}
-              d={d}
-              startYear={p.startYear}
-              onChange={patch => library.updateDebt(d.id, patch)}
-              onRemove={() => library.removeDebt(d.id)}
-            />
+            <div key={d.id} data-io-item={d.id} style={ioItemAnchor}>
+              <DebtItem
+                d={d}
+                startYear={p.startYear}
+                onChange={patch => library.updateDebt(d.id, patch)}
+                onRemove={() => library.removeDebt(d.id)}
+              />
+            </div>
           ))}
         </section>
 
@@ -267,12 +279,13 @@ export default function IO() {
             </p>
           )}
           {library.recurringCharges.map(c => (
-            <RecurringChargeItem
-              key={c.id}
-              c={c}
-              onChange={patch => library.updateRecurringCharge(c.id, patch)}
-              onRemove={() => library.removeRecurringCharge(c.id)}
-            />
+            <div key={c.id} data-io-item={c.id} style={ioItemAnchor}>
+              <RecurringChargeItem
+                c={c}
+                onChange={patch => library.updateRecurringCharge(c.id, patch)}
+                onRemove={() => library.removeRecurringCharge(c.id)}
+              />
+            </div>
           ))}
         </section>
 
@@ -280,7 +293,7 @@ export default function IO() {
         <section className="sec" aria-label="Library purchases">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
             <span style={labelStyle}>🛒 Major Purchases</span>
-            <button onClick={handleAddPurchase} style={addBtnStyle}>+ Add Purchase</button>
+            <button type="button" onClick={handleAddPurchase} style={addBtnStyle}>+ Add Purchase</button>
           </div>
           <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: library.purchases.length ? 8 : 0 }}>
             Loans and house payments. Down payment hits savings at purchase date. Optional market value feeds net worth (equity); leave blank for debt-only loans.
@@ -291,15 +304,16 @@ export default function IO() {
             </p>
           )}
           {library.purchases.map(pur => (
-            <PurchaseItem
-              key={pur.id}
-              p={pur}
-              startYear={p.startYear}
-              startMonthIdx={p.startMonthIdx}
-              housingCost={library.profile.housingCost}
-              onChange={patch => library.updatePurchase(pur.id, patch)}
-              onRemove={() => library.removePurchase(pur.id)}
-            />
+            <div key={pur.id} data-io-item={pur.id} style={ioItemAnchor}>
+              <PurchaseItem
+                p={pur}
+                startYear={p.startYear}
+                startMonthIdx={p.startMonthIdx}
+                housingCost={library.profile.housingCost}
+                onChange={patch => library.updatePurchase(pur.id, patch)}
+                onRemove={() => library.removePurchase(pur.id)}
+              />
+            </div>
           ))}
         </section>
 
@@ -318,12 +332,13 @@ export default function IO() {
             </p>
           )}
           {library.investments.map(inv => (
-            <InvestmentItem
-              key={inv.id}
-              i={inv}
-              onChange={patch => library.updateInvestment(inv.id, patch)}
-              onRemove={() => library.removeInvestment(inv.id)}
-            />
+            <div key={inv.id} data-io-item={inv.id} style={ioItemAnchor}>
+              <InvestmentItem
+                i={inv}
+                onChange={patch => library.updateInvestment(inv.id, patch)}
+                onRemove={() => library.removeInvestment(inv.id)}
+              />
+            </div>
           ))}
         </section>
 
@@ -331,7 +346,7 @@ export default function IO() {
         <section className="sec" aria-label="Library raises">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
             <span style={labelStyle}>📈 Raises</span>
-            <button onClick={handleAddRaise} style={addBtnStyle}>+ Add Raise</button>
+            <button type="button" onClick={handleAddRaise} style={addBtnStyle}>+ Add Raise</button>
           </div>
           <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: library.raises.length ? 8 : 0 }}>
             Salary changes that grow your effective savings rate.
@@ -342,15 +357,16 @@ export default function IO() {
             </p>
           )}
           {library.raises.map(r => (
-            <RaiseItem
-              key={r.id}
-              r={r}
-              startYear={p.startYear}
-              taxPct={p.taxPct}
-              baseSalary={r.baseSalary}
-              onChange={patch => library.updateRaise(r.id, patch)}
-              onRemove={() => library.removeRaise(r.id)}
-            />
+            <div key={r.id} data-io-item={r.id} style={ioItemAnchor}>
+              <RaiseItem
+                r={r}
+                startYear={p.startYear}
+                taxPct={p.taxPct}
+                baseSalary={r.baseSalary}
+                onChange={patch => library.updateRaise(r.id, patch)}
+                onRemove={() => library.removeRaise(r.id)}
+              />
+            </div>
           ))}
         </section>
 

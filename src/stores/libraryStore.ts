@@ -41,19 +41,19 @@ interface LibraryState {
   raises:     Raise[];
   investments:     Investment[];
   recurringCharges: RecurringCharge[];
-  addDebt:        (d: Omit<Debt, 'id'>) => void;
+  addDebt:        (d: Omit<Debt, 'id'>) => string;
   updateDebt:     (id: string, patch: Partial<Debt>) => void;
   removeDebt:     (id: string) => void;
-  addPurchase:    (p: Omit<Purchase, 'id'>) => void;
+  addPurchase:    (p: Omit<Purchase, 'id'>) => string;
   updatePurchase: (id: string, patch: Partial<Purchase>) => void;
   removePurchase: (id: string) => void;
-  addRaise:       (r: Omit<Raise, 'id'>) => void;
+  addRaise:       (r: Omit<Raise, 'id'>) => string;
   updateRaise:    (id: string, patch: Partial<Raise>) => void;
   removeRaise:    (id: string) => void;
-  addInvestment:       (i: Omit<Investment, 'id'>) => void;
+  addInvestment:       (i: Omit<Investment, 'id'>) => string;
   updateInvestment:    (id: string, patch: Partial<Investment>) => void;
   removeInvestment:    (id: string) => void;
-  addRecurringCharge:  (c: Omit<RecurringCharge, 'id'>) => void;
+  addRecurringCharge:  (c: Omit<RecurringCharge, 'id'>) => string;
   updateRecurringCharge: (id: string, patch: Partial<RecurringCharge>) => void;
   removeRecurringCharge: (id: string) => void;
 }
@@ -71,36 +71,51 @@ export const useLibraryStore = create<LibraryState>()(
         investments:     [],
         recurringCharges: [],
 
-        addDebt: (d) =>
-          set(s => ({ debts: [...s.debts, { ...d, id: crypto.randomUUID() }] })),
+        addDebt: (d) => {
+          const id = crypto.randomUUID();
+          set(s => ({ debts: [...s.debts, { ...d, id }] }));
+          return id;
+        },
         updateDebt: (id, patch) =>
           set(s => ({ debts: s.debts.map(d => d.id === id ? { ...d, ...patch } : d) })),
         removeDebt: (id) =>
           set(s => ({ debts: s.debts.filter(d => d.id !== id) })),
 
-        addPurchase: (p) =>
-          set(s => ({ purchases: [...s.purchases, { ...p, id: crypto.randomUUID() }] })),
+        addPurchase: (p) => {
+          const id = crypto.randomUUID();
+          set(s => ({ purchases: [...s.purchases, { ...p, id }] }));
+          return id;
+        },
         updatePurchase: (id, patch) =>
           set(s => ({ purchases: s.purchases.map(p => p.id === id ? { ...p, ...patch } : p) })),
         removePurchase: (id) =>
           set(s => ({ purchases: s.purchases.filter(p => p.id !== id) })),
 
-        addRaise: (r) =>
-          set(s => ({ raises: [...s.raises, { ...r, id: crypto.randomUUID() }] })),
+        addRaise: (r) => {
+          const id = crypto.randomUUID();
+          set(s => ({ raises: [...s.raises, { ...r, id }] }));
+          return id;
+        },
         updateRaise: (id, patch) =>
           set(s => ({ raises: s.raises.map(r => r.id === id ? { ...r, ...patch } : r) })),
         removeRaise: (id) =>
           set(s => ({ raises: s.raises.filter(r => r.id !== id) })),
 
-        addInvestment: (i) =>
-          set(s => ({ investments: [...s.investments, { ...i, id: crypto.randomUUID() }] })),
+        addInvestment: (i) => {
+          const id = crypto.randomUUID();
+          set(s => ({ investments: [...s.investments, { ...i, id }] }));
+          return id;
+        },
         updateInvestment: (id, patch) =>
           set(s => ({ investments: s.investments.map(x => x.id === id ? { ...x, ...patch } : x) })),
         removeInvestment: (id) =>
           set(s => ({ investments: s.investments.filter(x => x.id !== id) })),
 
-        addRecurringCharge: (c) =>
-          set(s => ({ recurringCharges: [...s.recurringCharges, { ...c, id: crypto.randomUUID() }] })),
+        addRecurringCharge: (c) => {
+          const id = crypto.randomUUID();
+          set(s => ({ recurringCharges: [...s.recurringCharges, { ...c, id }] }));
+          return id;
+        },
         updateRecurringCharge: (id, patch) =>
           set(s => ({ recurringCharges: s.recurringCharges.map(x => x.id === id ? { ...x, ...patch } : x) })),
         removeRecurringCharge: (id) =>
