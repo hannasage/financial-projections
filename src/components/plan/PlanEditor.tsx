@@ -711,25 +711,41 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
         </section>
 
         {/* ── MILESTONES ── */}
-        <section className="sec" aria-label="Cash savings milestones">
+        <section className="sec" aria-label="Cash savings milestones" style={{ overflowX: 'hidden', maxWidth: '100%' }}>
           <h2 style={{ ...S.label, marginBottom: 12 }}>Milestones</h2>
           <p style={{ fontSize: 10, color: COLORS.dim, marginBottom: 8, lineHeight: 1.55 }}>
             Charts reflect simplified timing and taxes—directionally useful, not exact balances at closing dates.
           </p>
           <p style={{ fontSize: 10, color: COLORS.muted, marginBottom: 10 }}>Cash on hand only. Investment balances count toward net worth, not liquidity.</p>
-          <div className="mg">
+          <div className="mg" style={{ maxWidth: '100%' }}>
             {milestones.map(s => (
               <div key={s.m} style={{
-                padding: '14px 12px',
+                padding: '12px 10px',
+                minWidth: 0,
+                maxWidth: '100%',
+                boxSizing: 'border-box',
                 background: s.hi ? `${accent}0E` : COLORS.surface,
                 border: `1px solid ${s.hi ? accent : COLORS.border}`,
                 borderRadius: 6,
+                overflow: 'hidden',
               }}>
                 <div style={{ ...S.label, marginBottom: 6 }}>Age {Math.floor(mergedScenario.startAge + s.m / 12)}</div>
-                <div className="syne" style={{ fontSize: 22, fontWeight: 800, color: s.hi ? accent : COLORS.text, lineHeight: 1, marginBottom: 5 }}>
+                <div
+                  className="syne"
+                  title={money(snap(s.m)?.liquidTotal ?? 0)}
+                  style={{
+                    fontSize: 'clamp(15px, 4.2vw, 22px)',
+                    fontWeight: 800,
+                    color: s.hi ? accent : COLORS.text,
+                    lineHeight: 1.1,
+                    marginBottom: 5,
+                    wordBreak: 'break-word',
+                    overflowWrap: 'anywhere',
+                  }}
+                >
                   {money(snap(s.m)?.liquidTotal ?? 0)}
                 </div>
-                <div style={{ fontSize: 11, color: COLORS.muted }}>{s.label}</div>
+                <div style={{ fontSize: 11, color: COLORS.muted, lineHeight: 1.35, wordBreak: 'break-word' }}>{s.label}</div>
                 {s.hi && (
                   <div style={{ fontSize: 10, color: `${accent}99`, marginTop: 3 }}>
                     {mergedScenario.returnMode === 'none' ? '0% · cash' : mergedScenario.returnMode === 'hysa' ? `${mergedScenario.hysaRate ?? 4.5}% HYSA` : '7% invested'}

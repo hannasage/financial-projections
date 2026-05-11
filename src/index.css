@@ -90,8 +90,12 @@ button:focus-visible {
 
 .mg {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, 1fr): Safari/WebKit won’t let grid items shrink below content without this */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* Responsive nav: desktop tabs + action buttons visible only on desktop */
@@ -106,7 +110,7 @@ button:focus-visible {
 
 @media (min-width: 640px) {
   .sec { padding: 20px 28px; }
-  .mg  { grid-template-columns: repeat(3, 1fr); }
+  .mg  { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 639px) {

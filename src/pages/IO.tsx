@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useColors } from '../stores/themeStore';
 import { useAuthStore } from '../stores/authStore';
@@ -62,39 +63,54 @@ export default function IO() {
   });
 
   const handleAddDebt = () => {
-    const id = library.addDebt({
-      label: '', payment: 200, payoffMonthIdx: p.startMonthIdx, payoffYear: p.startYear + 1,
+    let id = '';
+    flushSync(() => {
+      id = library.addDebt({
+        label: '', payment: 200, payoffMonthIdx: p.startMonthIdx, payoffYear: p.startYear + 1,
+      });
     });
     scrollIoItemIntoViewAndFocus(id);
   };
 
   const handleAddPurchase = () => {
     const loanAmount = 30_000, rate = 7, termMonths = 60, multiplier = 1;
-    const id = library.addPurchase({
-      type: 'loan', label: '',
-      year: p.startYear + 2, monthIdx: p.startMonthIdx,
-      downPayment: 0, loanAmount, rate, termMonths, multiplier,
-      payment: Math.round(stdPayment(loanAmount, rate, termMonths)),
+    let id = '';
+    flushSync(() => {
+      id = library.addPurchase({
+        type: 'loan', label: '',
+        year: p.startYear + 2, monthIdx: p.startMonthIdx,
+        downPayment: 0, loanAmount, rate, termMonths, multiplier,
+        payment: Math.round(stdPayment(loanAmount, rate, termMonths)),
+      });
     });
     scrollIoItemIntoViewAndFocus(id);
   };
 
   const handleAddRaise = () => {
-    const id = library.addRaise({
-      year: p.startYear + 1, monthIdx: p.startMonthIdx, salary: 70_000, baseSalary: p.baseSalary,
+    let id = '';
+    flushSync(() => {
+      id = library.addRaise({
+        year: p.startYear + 1, monthIdx: p.startMonthIdx, salary: 70_000, baseSalary: p.baseSalary,
+      });
     });
     scrollIoItemIntoViewAndFocus(id);
   };
 
   const handleAddRecurring = () => {
-    const id = library.addRecurringCharge({ label: '', amount: 15 });
+    let id = '';
+    flushSync(() => {
+      id = library.addRecurringCharge({ label: '', amount: 15 });
+    });
     scrollIoItemIntoViewAndFocus(id);
   };
 
   const handleAddInvestment = () => {
-    const id = library.addInvestment({
-      label: '', initialAmount: 0, annualReturnPct: 7, monthlyContribution: 200,
-      startYear: p.startYear, startMonthIdx: p.startMonthIdx,
+    let id = '';
+    flushSync(() => {
+      id = library.addInvestment({
+        label: '', initialAmount: 0, annualReturnPct: 7, monthlyContribution: 200,
+        startYear: p.startYear, startMonthIdx: p.startMonthIdx,
+      });
     });
     scrollIoItemIntoViewAndFocus(id);
   };
