@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor,
@@ -87,6 +87,26 @@ function pickRandomColor(usedColors: string[], planColors: { value: string }[]):
   return pool[Math.floor(Math.random() * pool.length)].value;
 }
 
+const PWA_BANNER_DISMISS_KEY = 'projection-dismiss-pwa-homescreen-banner';
+
+function isRunningAsInstalledPwa(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (window.matchMedia('(display-mode: standalone)').matches) return true;
+    if (window.matchMedia('(display-mode: fullscreen)').matches) return true;
+  } catch { /* ignore */ }
+  return Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone);
+}
+
+function readPwaBannerDismissed(): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    return window.localStorage.getItem(PWA_BANNER_DISMISS_KEY) === '1';
+  } catch {
+    return true;
+  }
+}
+
 export default function Dashboard() {
   const COLORS        = useColors();
   const planColors    = usePlanColors();
@@ -98,6 +118,16 @@ export default function Dashboard() {
 
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [clipYears,     setClipYears]     = useState<number | null>(null);
+  const [showPwaBanner, setShowPwaBanner] = useState(
+    () => !readPwaBannerDismissed() && !isRunningAsInstalledPwa(),
+  );
+
+  const dismissPwaBanner = useCallback(() => {
+    try {
+      window.localStorage.setItem(PWA_BANNER_DISMISS_KEY, '1');
+    } catch { /* private mode / quota */ }
+    setShowPwaBanner(false);
+  }, []);
   const [comparisonTab, setComparisonTab] = useState<ComparisonMetric>('liquidity');
   const cmpTabLabelId = comparisonTab === 'liquidity' ? 'cmp-tab-liquidity'
     : comparisonTab === 'debt' ? 'cmp-tab-debt'
@@ -195,6 +225,64 @@ export default function Dashboard() {
       </header>
 
       <main id="main" style={{ maxWidth: 960, margin: '0 auto', padding: '0 18px 80px' }}>
+
+        {showPwaBanner && (
+          <div
+            role="region"
+            aria-label="Install as app"
+            style={{
+              marginTop: 14,
+              marginBottom: 16,
+              padding: '12px 14px 12px 16px',
+              borderRadius: 8,
+              border: `1px solid ${COLORS.accent}`,
+              background: `${COLORS.accent}14`,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 12,
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+              <div
+                className="syne"
+                style={{
+                  fontSize: 13,
+                  fontWeight: 800,
+                  color: COLORS.accent,
+                  letterSpacing: 0.02,
+                  marginBottom: 6,
+                }}
+              >
+                Install Projection
+              </div>
+              <p style={{ fontSize: 11, color: COLORS.text, lineHeight: 1.55, margin: 0 }}>
+                This site is a <strong style={{ color: COLORS.accent }}>PWA</strong> (progressive web app). Add it to your
+                home screen to open it full screen like a native app and keep it one tap away. On iPhone: Share →{' '}
+                <em>Add to Home Screen</em>. On Android: browser menu → <em>Install app</em> or <em>Add to Home screen</em>.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={dismissPwaBanner}
+              aria-label="Dismiss install banner"
+              style={{
+                flexShrink: 0,
+                padding: '6px 12px',
+                fontSize: 11,
+                borderRadius: 4,
+                border: `1px solid ${COLORS.accent}`,
+                background: COLORS.accent,
+                color: COLORS.textOnAccent,
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Got it
+            </button>
+          </div>
+        )}
 
         {plans.length === 0 ? (
           <div style={{ textAlign: 'center', paddingTop: 80 }}>
