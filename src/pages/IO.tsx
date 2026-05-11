@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useColors } from '../stores/themeStore';
 import { useAuthStore } from '../stores/authStore';
 import { useLibraryStore } from '../stores/libraryStore';
@@ -12,7 +12,9 @@ import { PurchaseItem } from '../components/plan/PurchaseItem';
 import { RaiseItem } from '../components/plan/RaiseItem';
 import { InvestmentItem } from '../components/plan/InvestmentItem';
 import { RecurringChargeItem } from '../components/plan/RecurringChargeItem';
+import { MarkersEditor } from '../components/plan/MarkersEditor';
 import { ThemeSelector } from '../components/shared/ThemeSelector';
+import type { Marker } from '../lib/types';
 import { scrollIoItemIntoViewAndFocus } from '../lib/ioScrollFocus';
 import { applyBackup, downloadBackupJson, downloadSummaryCsv, parseBackupJson } from '../lib/dataBackup';
 
@@ -25,7 +27,17 @@ export default function IO() {
   const COLORS  = useColors();
   const logout  = useAuthStore(s => s.logout);
   const library = useLibraryStore();
+  const location = useLocation();
   const [backupMsg, setBackupMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+
+  // When opened with `?focus=<id>` (e.g. via the "View it" modal action after copying a
+  // scenario item into the library), scroll/focus that library row on mount.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const focusId = params.get('focus');
+    if (!focusId) return;
+    scrollIoItemIntoViewAndFocus(focusId);
+  }, [location.search]);
 
   const p = library.profile;
   const sp = (patch: Partial<typeof p>) => library.setProfile(patch);
@@ -490,6 +502,16 @@ export default function IO() {
               />
             </div>
           ))}
+        </section>
+
+        {/* Phases / Markers */}
+        <section className="sec" aria-label="Library phases">
+          <MarkersEditor
+            markers={library.markers}
+            onChange={(next: Marker[]) => library.setMarkers(next)}
+            defaultStartYear={p.startYear}
+            defaultStartMonthIdx={p.startMonthIdx}
+          />
         </section>
 
         {/* Raises */}

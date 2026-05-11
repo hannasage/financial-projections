@@ -7,7 +7,8 @@ import { usePlans } from '../../hooks/usePlans';
 import { PlanEditor } from './PlanEditor';
 import { ColorPicker } from '../shared/ColorPicker';
 import { MarkersEditor } from './MarkersEditor';
-import { mergeIntoScenario } from '../../lib/resolveItems';
+import { Modal } from '../shared/Modal';
+import { mergeIntoScenario, resolveMarkers } from '../../lib/resolveItems';
 import type { Marker, Scenario } from '../../lib/types';
 
 function useIsMobile() {
@@ -39,9 +40,14 @@ export function PlanEditDrawer({ planId, onClose }: Props) {
   const [description, setDescription] = useState('');
   const [color,       setColor]       = useState('#C9F53A');
   const [markers,     setMarkers]     = useState<Marker[]>([]);
+  const [excludedMarkerIds, setExcludedMarkerIds] = useState<string[]>([]);
+  const [savedMarkerToLibrary, setSavedMarkerToLibrary] = useState<Record<string, string>>({});
+  const [copiedMarkerInfo, setCopiedMarkerInfo] = useState<{ libraryId: string; title: string } | null>(null);
   const [saving,      setSaving]      = useState(false);
   const [error,       setError]       = useState('');
   const [open,        setOpen]        = useState(false);
+  const addLibraryMarker = useLibraryStore(s => s.addMarker);
+  const resolvedMarkers = resolveMarkers({ markers, excludedMarkerIds }, library.markers);
 
   // Trigger slide-in animation after mount
   useEffect(() => {
@@ -56,6 +62,8 @@ export function PlanEditDrawer({ planId, onClose }: Props) {
     setDescription(plan.description ?? '');
     setColor(plan.color ?? useThemeStore.getState().theme.planColors[0]?.value ?? '#C9F53A');
     setMarkers(plan.markers ?? []);
+    setExcludedMarkerIds(plan.excludedMarkerIds ?? []);
+    setSavedMarkerToLibrary({});
     setSaving(false);
     setError('');
   }, [plan?.id]);
@@ -86,13 +94,38 @@ export function PlanEditDrawer({ planId, onClose }: Props) {
     setSaving(true);
     setError('');
     try {
-      await updatePlan(planId, { title: title.trim(), description, color, scenario, markers });
+      await updatePlan(planId, { title: title.trim(), description, color, scenario, markers, excludedMarkerIds });
       handleClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Save failed.');
       setSaving(false);
     }
   };
+
+  /** Toggle whether a library marker is excluded from this plan. */
+  const handleToggleExcludedMarker = (libraryId: string) => {
+    setExcludedMarkerIds(prev =>
+      prev.includes(libraryId) ? prev.filter(x => x !== libraryId) : [...prev, libraryId],
+    );
+  };
+
+  /** Copy a library marker into this plan's custom list (with a new id) and exclude the library version. */
+  const handleForkLibraryMarker = (m: Marker) => {
+    setMarkers(prev => [...prev, { ...m, id: crypto.randomUUID() }]);
+    setExcludedMarkerIds(prev => prev.includes(m.id) ? prev : [...prev, m.id]);
+  };
+
+  /** Save a plan-custom marker to the global I/O library as a new entry (never edits the original). */
+  const handleSaveCustomToLibrary = (m: Marker) => {
+    const clone: Partial<Marker> = { ...m };
+    delete clone.id;
+    const libraryId = addLibraryMarker(clone as Omit<Marker, 'id'>);
+    setSavedMarkerToLibrary(prev => ({ ...prev, [m.id]: libraryId }));
+    setCopiedMarkerInfo({ libraryId, title: m.title || 'New phase' });
+  };
+  const savedMap: Record<string, boolean> = Object.fromEntries(
+    Object.keys(savedMarkerToLibrary).map(k => [k, true]),
+  );
 
   const S = {
     field: {
@@ -205,6 +238,12 @@ export function PlanEditDrawer({ planId, onClose }: Props) {
                 onChange={setMarkers}
                 defaultStartYear={merged?.startYear}
                 defaultStartMonthIdx={merged?.startMonthIdx}
+                libraryMarkers={library.markers}
+                excludedMarkerIds={excludedMarkerIds}
+                onToggleExcluded={handleToggleExcludedMarker}
+                onForkLibraryMarker={handleForkLibraryMarker}
+                onSaveCustomToLibrary={handleSaveCustomToLibrary}
+                savedToLibrary={savedMap}
               />
             </div>
             {error && (
@@ -220,7 +259,7 @@ export function PlanEditDrawer({ planId, onClose }: Props) {
           <PlanEditor
             initialScenario={plan.scenario}
             color={color}
-            markers={markers}
+            markers={resolvedMarkers}
             onSave={handleSave}
             onCancel={handleClose}
             isSaving={saving}
@@ -228,6 +267,34 @@ export function PlanEditDrawer({ planId, onClose }: Props) {
           />
         )}
       </div>
+
+      <Modal
+        open={copiedMarkerInfo != null}
+        title="Phase copied to I/O library"
+        onDismiss={() => setCopiedMarkerInfo(null)}
+        actions={copiedMarkerInfo == null ? [] : [
+          {
+            label: 'View it',
+            variant: 'secondary',
+            href: `/io?focus=${encodeURIComponent(copiedMarkerInfo.libraryId)}`,
+            target: '_blank',
+            ariaLabel: 'Open the I/O library in a new tab',
+            onClick: () => setCopiedMarkerInfo(null),
+          },
+          {
+            label: 'Thanks!',
+            variant: 'primary',
+            onClick: () => setCopiedMarkerInfo(null),
+          },
+        ]}
+      >
+        {copiedMarkerInfo && (
+          <>
+            <strong style={{ color: COLORS.text }}>{copiedMarkerInfo.title}</strong> was added to your global I/O library as a new phase.
+            Other plans will inherit it automatically; the original custom marker on this plan is untouched.
+          </>
+        )}
+      </Modal>
     </>
   );
 }

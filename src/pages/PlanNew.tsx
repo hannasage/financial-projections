@@ -7,6 +7,8 @@ import { useLibraryStore } from '../stores/libraryStore';
 import { PlanEditor } from '../components/plan/PlanEditor';
 import { ColorPicker } from '../components/shared/ColorPicker';
 import { MarkersEditor } from '../components/plan/MarkersEditor';
+import { Modal } from '../components/shared/Modal';
+import { resolveMarkers } from '../lib/resolveItems';
 import type { Marker, Scenario } from '../lib/types';
 
 export default function PlanNew() {
@@ -14,6 +16,8 @@ export default function PlanNew() {
   const navigate       = useNavigate();
   const { createPlan } = usePlans();
   const profile        = useLibraryStore(s => s.profile);
+  const libraryMarkers = useLibraryStore(s => s.markers);
+  const addLibraryMarker = useLibraryStore(s => s.addMarker);
 
   const [title,       setTitle]       = useState('');
   const [description, setDescription] = useState('');
@@ -21,8 +25,35 @@ export default function PlanNew() {
     useThemeStore.getState().theme.planColors[0]?.value ?? '#C9F53A',
   );
   const [markers,     setMarkers]     = useState<Marker[]>([]);
+  const [excludedMarkerIds, setExcludedMarkerIds] = useState<string[]>([]);
+  const [savedMarkerToLibrary, setSavedMarkerToLibrary] = useState<Record<string, string>>({});
+  const [copiedMarkerInfo, setCopiedMarkerInfo] = useState<{ libraryId: string; title: string } | null>(null);
   const [saving,      setSaving]      = useState(false);
   const [error,       setError]       = useState('');
+
+  const resolvedMarkers = resolveMarkers({ markers, excludedMarkerIds }, libraryMarkers);
+  const savedMap: Record<string, boolean> = Object.fromEntries(
+    Object.keys(savedMarkerToLibrary).map(k => [k, true]),
+  );
+
+  const handleToggleExcludedMarker = (libraryId: string) => {
+    setExcludedMarkerIds(prev =>
+      prev.includes(libraryId) ? prev.filter(x => x !== libraryId) : [...prev, libraryId],
+    );
+  };
+
+  const handleForkLibraryMarker = (m: Marker) => {
+    setMarkers(prev => [...prev, { ...m, id: crypto.randomUUID() }]);
+    setExcludedMarkerIds(prev => prev.includes(m.id) ? prev : [...prev, m.id]);
+  };
+
+  const handleSaveCustomToLibrary = (m: Marker) => {
+    const clone: Partial<Marker> = { ...m };
+    delete clone.id;
+    const libraryId = addLibraryMarker(clone as Omit<Marker, 'id'>);
+    setSavedMarkerToLibrary(prev => ({ ...prev, [m.id]: libraryId }));
+    setCopiedMarkerInfo({ libraryId, title: m.title || 'New phase' });
+  };
 
   const S = {
     field: {
@@ -40,7 +71,7 @@ export default function PlanNew() {
     setSaving(true);
     setError('');
     try {
-      await createPlan({ title: title.trim(), description, color, scenario, markers });
+      await createPlan({ title: title.trim(), description, color, scenario, markers, excludedMarkerIds });
       navigate('/scenarios');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Save failed.');
@@ -83,6 +114,12 @@ export default function PlanNew() {
               onChange={setMarkers}
               defaultStartYear={profile.startYear}
               defaultStartMonthIdx={profile.startMonthIdx}
+              libraryMarkers={libraryMarkers}
+              excludedMarkerIds={excludedMarkerIds}
+              onToggleExcluded={handleToggleExcludedMarker}
+              onForkLibraryMarker={handleForkLibraryMarker}
+              onSaveCustomToLibrary={handleSaveCustomToLibrary}
+              savedToLibrary={savedMap}
             />
           </div>
           {error && (
@@ -103,11 +140,39 @@ export default function PlanNew() {
           excludedInvestmentIds: [], excludedRecurringChargeIds: [],
         }}
         color={color}
-        markers={markers}
+        markers={resolvedMarkers}
         onSave={handleSave}
         onCancel={() => navigate('/scenarios')}
         isSaving={saving}
       />
+
+      <Modal
+        open={copiedMarkerInfo != null}
+        title="Phase copied to I/O library"
+        onDismiss={() => setCopiedMarkerInfo(null)}
+        actions={copiedMarkerInfo == null ? [] : [
+          {
+            label: 'View it',
+            variant: 'secondary',
+            href: `/io?focus=${encodeURIComponent(copiedMarkerInfo.libraryId)}`,
+            target: '_blank',
+            ariaLabel: 'Open the I/O library in a new tab',
+            onClick: () => setCopiedMarkerInfo(null),
+          },
+          {
+            label: 'Thanks!',
+            variant: 'primary',
+            onClick: () => setCopiedMarkerInfo(null),
+          },
+        ]}
+      >
+        {copiedMarkerInfo && (
+          <>
+            <strong style={{ color: COLORS.text }}>{copiedMarkerInfo.title}</strong> was added to your global I/O library as a new phase.
+            Other plans will inherit it automatically; the original custom marker on this plan is untouched.
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

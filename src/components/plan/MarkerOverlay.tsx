@@ -19,6 +19,14 @@ export interface MarkerOverlayInput {
   overrideColor?: string;
   /** Unique key prefix so multiple charts on the same page don't collide. */
   keyPrefix?:   string;
+  /**
+   * Rendering style:
+   *   - 'shaded' (default): ReferenceArea fill + dashed outline. Best for single-plan charts where
+   *     phases benefit from a visual block.
+   *   - 'lines': just dotted vertical ReferenceLines at start (and end, for closed ranges). Use on
+   *     multi-plan comparison charts to avoid overlapping fills cluttering the canvas.
+   */
+  style?:       'shaded' | 'lines';
 }
 
 /**
@@ -36,10 +44,27 @@ export interface MarkerOverlayInput {
  * strip above the chart instead.
  */
 export function renderMarkerOverlay(input: MarkerOverlayInput): ReactElement[] {
-  const { markers, minDecimalYr, maxDecimalYr, colors, overrideColor, keyPrefix = 'mk' } = input;
+  const { markers, minDecimalYr, maxDecimalYr, colors, overrideColor, keyPrefix = 'mk', style = 'shaded' } = input;
   if (!markers?.length) return [];
 
   const out: ReactElement[] = [];
+
+  /** Helper: render a dotted vertical line at a given decimal year, if it falls in range. */
+  const pushDottedLine = (id: string, x: number, color: string) => {
+    if (x < minDecimalYr || x > maxDecimalYr) return;
+    out.push(
+      <ReferenceLine
+        key={id}
+        x={x}
+        stroke={color}
+        strokeWidth={1.25}
+        strokeOpacity={0.7}
+        strokeDasharray="2 3"
+        ifOverflow="visible"
+      />,
+    );
+  };
+
   for (const m of markers) {
     const startYr = markerDecimalYr(m.startYear, m.startMonthIdx);
     const endYrRaw = m.endYear != null && m.endMonthIdx != null
@@ -47,6 +72,21 @@ export function renderMarkerOverlay(input: MarkerOverlayInput): ReactElement[] {
       : null;
     const c = overrideColor ?? resolveMarkerColor(m.color, colors);
 
+    if (style === 'lines') {
+      // Dotted vertical line at start; second dotted line at end (when closed range). No shading.
+      if (endYrRaw != null) {
+        const lo = Math.min(startYr, endYrRaw);
+        const hi = Math.max(startYr, endYrRaw);
+        if (hi < minDecimalYr || lo > maxDecimalYr) continue;
+        pushDottedLine(`${keyPrefix}-${m.id}-start`, lo, c);
+        pushDottedLine(`${keyPrefix}-${m.id}-end`,   hi, c);
+      } else {
+        pushDottedLine(`${keyPrefix}-${m.id}-start`, startYr, c);
+      }
+      continue;
+    }
+
+    // ── 'shaded' style (default; used on per-plan editor charts) ─────────────
     if (endYrRaw != null) {
       // Closed range: shaded area between start and end with dashed outline on all sides.
       const lo = Math.min(startYr, endYrRaw);

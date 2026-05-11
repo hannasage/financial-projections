@@ -26,6 +26,15 @@ function parsePlan(raw: Record<string, unknown>): Plan {
     try { markersRaw = JSON.parse(markersRaw); } catch { markersRaw = []; }
   }
   const markers = sanitizeMarkerArray(markersRaw);
+
+  let excludedRaw: unknown = raw.excludedMarkerIds;
+  if (typeof excludedRaw === 'string') {
+    try { excludedRaw = JSON.parse(excludedRaw); } catch { excludedRaw = []; }
+  }
+  const excludedMarkerIds = Array.isArray(excludedRaw)
+    ? excludedRaw.filter((x): x is string => typeof x === 'string')
+    : [];
+
   return {
     id:          raw.id as string,
     user:        raw.user as string,
@@ -36,6 +45,7 @@ function parsePlan(raw: Record<string, unknown>): Plan {
                    ? JSON.parse(raw.scenario) as Scenario
                    : raw.scenario as Scenario,
     markers:     markers.length > 0 ? markers : undefined,
+    excludedMarkerIds: excludedMarkerIds.length > 0 ? excludedMarkerIds : undefined,
     created:     raw.created as string,
     updated:     raw.updated as string,
   };
@@ -82,8 +92,11 @@ export function usePlans() {
   // ── createPlan ──────────────────────────────────────────────────────────────
 
   const createPlan = useCallback(
-    async (data: { title: string; description: string; color: string; scenario: Scenario; markers?: Marker[] }): Promise<Plan> => {
+    async (data: { title: string; description: string; color: string; scenario: Scenario; markers?: Marker[]; excludedMarkerIds?: string[] }): Promise<Plan> => {
       const cleanMarkers = sanitizeMarkerArray(data.markers);
+      const cleanExcludedMarkerIds = Array.isArray(data.excludedMarkerIds)
+        ? data.excludedMarkerIds.filter((x): x is string => typeof x === 'string' && x.length > 0)
+        : [];
       if (LOCAL_MODE) {
         const plan: Plan = {
           id:          crypto.randomUUID(),
@@ -93,6 +106,7 @@ export function usePlans() {
           color:       data.color,
           scenario:    data.scenario,
           markers:     cleanMarkers.length > 0 ? cleanMarkers : undefined,
+          excludedMarkerIds: cleanExcludedMarkerIds.length > 0 ? cleanExcludedMarkerIds : undefined,
           created:     new Date().toISOString(),
           updated:     new Date().toISOString(),
         };
@@ -109,6 +123,7 @@ export function usePlans() {
         color:       data.color,
         scenario:    JSON.stringify(data.scenario),
         markers:     JSON.stringify(cleanMarkers),
+        excludedMarkerIds: JSON.stringify(cleanExcludedMarkerIds),
       });
       const plan = parsePlan(raw as unknown as Record<string, unknown>);
       upsert(plan);
@@ -120,8 +135,11 @@ export function usePlans() {
   // ── updatePlan ──────────────────────────────────────────────────────────────
 
   const updatePlan = useCallback(
-    async (id: string, data: { title?: string; description?: string; color?: string; scenario?: Scenario; markers?: Marker[] }): Promise<Plan> => {
+    async (id: string, data: { title?: string; description?: string; color?: string; scenario?: Scenario; markers?: Marker[]; excludedMarkerIds?: string[] }): Promise<Plan> => {
       const cleanMarkers = data.markers !== undefined ? sanitizeMarkerArray(data.markers) : undefined;
+      const cleanExcludedMarkerIds = data.excludedMarkerIds !== undefined
+        ? data.excludedMarkerIds.filter((x): x is string => typeof x === 'string' && x.length > 0)
+        : undefined;
       if (LOCAL_MODE) {
         const all      = getLocalPlans();
         const existing = all.find(p => p.id === id);
@@ -132,6 +150,9 @@ export function usePlans() {
           markers: cleanMarkers !== undefined
             ? (cleanMarkers.length > 0 ? cleanMarkers : undefined)
             : existing.markers,
+          excludedMarkerIds: cleanExcludedMarkerIds !== undefined
+            ? (cleanExcludedMarkerIds.length > 0 ? cleanExcludedMarkerIds : undefined)
+            : existing.excludedMarkerIds,
           updated: new Date().toISOString(),
         };
         saveLocalPlans(all.map(p => p.id === id ? updated : p));
@@ -142,6 +163,7 @@ export function usePlans() {
       const payload: Record<string, unknown> = { ...data };
       if (data.scenario) payload.scenario = JSON.stringify(data.scenario);
       if (cleanMarkers !== undefined) payload.markers = JSON.stringify(cleanMarkers);
+      if (cleanExcludedMarkerIds !== undefined) payload.excludedMarkerIds = JSON.stringify(cleanExcludedMarkerIds);
       const raw  = await pb.collection('plans').update(id, payload);
       const plan = parsePlan(raw as unknown as Record<string, unknown>);
       upsert(plan);

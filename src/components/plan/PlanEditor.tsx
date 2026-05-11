@@ -19,8 +19,21 @@ import { InvestmentItem } from './InvestmentItem';
 import { RecurringChargeItem } from './RecurringChargeItem';
 import { renderMarkerOverlay } from './MarkerOverlay';
 import { MarkerLegend } from './MarkerLegend';
+import { CustomItemWrapper } from './CustomItemWrapper';
+import { Modal } from '../shared/Modal';
 import { getActiveMarkersAt, resolveMarkerColor } from '../../lib/markerColors';
 import type { Scenario, Debt, Purchase, Raise, Investment, RecurringCharge, Marker } from '../../lib/types';
+
+/** Item kinds that can be copied to the global I/O library from the plan editor. */
+type CustomKind = 'debt' | 'recurring' | 'purchase' | 'investment' | 'raise';
+
+const KIND_LABEL: Record<CustomKind, string> = {
+  debt:        'debt',
+  recurring:   'recurring bill',
+  purchase:    'major purchase',
+  investment:  'investment bucket',
+  raise:       'raise',
+};
 
 const makeId = () => crypto.randomUUID();
 
@@ -118,6 +131,53 @@ export function PlanEditor({ initialScenario, color, markers, onSave, onCancel, 
   const [excludedRecurringChargeIds, setExcludedRecurringChargeIds] = useState<string[]>(init.excludedRecurringChargeIds ?? []);
 
   const library = useLibraryStore();
+  const addLibraryDebt = useLibraryStore(s => s.addDebt);
+  const addLibraryPurchase = useLibraryStore(s => s.addPurchase);
+  const addLibraryRaise = useLibraryStore(s => s.addRaise);
+  const addLibraryInvestment = useLibraryStore(s => s.addInvestment);
+  const addLibraryRecurringCharge = useLibraryStore(s => s.addRecurringCharge);
+
+  /** Tracks which scenario item ids have been copied to the global library this session. */
+  const [savedToLibrary, setSavedToLibrary] = useState<Record<string, string>>({});
+  /** When set, opens the "copied to I/O" confirmation modal. */
+  const [copiedInfo, setCopiedInfo] = useState<{ kind: CustomKind; libraryId: string; itemName: string } | null>(null);
+
+  /** Copy a scenario-only item to the global I/O library as a NEW record (never edits the original). */
+  const saveCustomToLibrary = useCallback((kind: CustomKind, scenarioId: string, itemName: string) => {
+    const omitId = <T extends { id: string }>(item: T): Omit<T, 'id'> => {
+      const clone = { ...item } as Partial<T>;
+      delete clone.id;
+      return clone as Omit<T, 'id'>;
+    };
+    let libraryId = '';
+    if (kind === 'debt') {
+      const item = debts.find(d => d.id === scenarioId);
+      if (!item) return;
+      libraryId = addLibraryDebt(omitId(item));
+    } else if (kind === 'purchase') {
+      const item = purchases.find(p => p.id === scenarioId);
+      if (!item) return;
+      libraryId = addLibraryPurchase(omitId(item));
+    } else if (kind === 'raise') {
+      const item = raises.find(r => r.id === scenarioId);
+      if (!item) return;
+      libraryId = addLibraryRaise(omitId(item));
+    } else if (kind === 'investment') {
+      const item = investments.find(i => i.id === scenarioId);
+      if (!item) return;
+      libraryId = addLibraryInvestment(omitId(item));
+    } else if (kind === 'recurring') {
+      const item = recurringCharges.find(c => c.id === scenarioId);
+      if (!item) return;
+      libraryId = addLibraryRecurringCharge(omitId(item));
+    }
+    if (!libraryId) return;
+    setSavedToLibrary(prev => ({ ...prev, [scenarioId]: libraryId }));
+    setCopiedInfo({ kind, libraryId, itemName: itemName || `New ${KIND_LABEL[kind]}` });
+  }, [
+    debts, purchases, raises, investments, recurringCharges,
+    addLibraryDebt, addLibraryPurchase, addLibraryRaise, addLibraryInvestment, addLibraryRecurringCharge,
+  ]);
 
   const toggleDebt     = useCallback((id: string) => setExcludedDebtIds(ids     => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]), []);
   const togglePurchase = useCallback((id: string) => setExcludedPurchaseIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]), []);
@@ -504,7 +564,14 @@ export function PlanEditor({ initialScenario, color, markers, onSave, onCancel, 
             </div>
           )}
           {debts.map(d => (
-            <DebtItem key={d.id} d={d} startYear={mergedScenario.startYear} onChange={p => changeDebt(d.id, p)} onRemove={() => rmDebt(d.id)} />
+            <CustomItemWrapper
+              key={d.id}
+              kindLabel="Custom debt · scenario only"
+              onSaveToLibrary={() => saveCustomToLibrary('debt', d.id, d.label)}
+              savedToLibrary={Boolean(savedToLibrary[d.id])}
+            >
+              <DebtItem d={d} startYear={mergedScenario.startYear} onChange={p => changeDebt(d.id, p)} onRemove={() => rmDebt(d.id)} />
+            </CustomItemWrapper>
           ))}
         </section>
 
@@ -556,7 +623,14 @@ export function PlanEditor({ initialScenario, color, markers, onSave, onCancel, 
             </p>
           )}
           {recurringCharges.map(c => (
-            <RecurringChargeItem key={c.id} c={c} onChange={p => changeRecurringCharge(c.id, p)} onRemove={() => rmRecurringCharge(c.id)} />
+            <CustomItemWrapper
+              key={c.id}
+              kindLabel="Custom recurring bill · scenario only"
+              onSaveToLibrary={() => saveCustomToLibrary('recurring', c.id, c.label)}
+              savedToLibrary={Boolean(savedToLibrary[c.id])}
+            >
+              <RecurringChargeItem c={c} onChange={p => changeRecurringCharge(c.id, p)} onRemove={() => rmRecurringCharge(c.id)} />
+            </CustomItemWrapper>
           ))}
         </section>
 
@@ -607,9 +681,16 @@ export function PlanEditor({ initialScenario, color, markers, onSave, onCancel, 
             </p>
           )}
           {purchases.map(p => (
-            <PurchaseItem key={p.id} p={p} startYear={mergedScenario.startYear} startMonthIdx={mergedScenario.startMonthIdx} housingCost={mergedScenario.housingCost}
-              horizonYears={mergedScenario.horizonYears}
-              onChange={patch => changePurchase(p.id, patch)} onRemove={() => rmPurchase(p.id)} />
+            <CustomItemWrapper
+              key={p.id}
+              kindLabel="Custom purchase · scenario only"
+              onSaveToLibrary={() => saveCustomToLibrary('purchase', p.id, p.label)}
+              savedToLibrary={Boolean(savedToLibrary[p.id])}
+            >
+              <PurchaseItem p={p} startYear={mergedScenario.startYear} startMonthIdx={mergedScenario.startMonthIdx} housingCost={mergedScenario.housingCost}
+                horizonYears={mergedScenario.horizonYears}
+                onChange={patch => changePurchase(p.id, patch)} onRemove={() => rmPurchase(p.id)} />
+            </CustomItemWrapper>
           ))}
         </section>
 
@@ -663,15 +744,21 @@ export function PlanEditor({ initialScenario, color, markers, onSave, onCancel, 
             </p>
           )}
           {investments.map(inv => (
-            <InvestmentItem
+            <CustomItemWrapper
               key={inv.id}
-              i={inv}
-              planStartYear={mergedScenario.startYear}
-              planStartMonthIdx={mergedScenario.startMonthIdx}
-              horizonYears={mergedScenario.horizonYears}
-              onChange={p => changeInvestment(inv.id, p)}
-              onRemove={() => rmInvestment(inv.id)}
-            />
+              kindLabel="Custom investment · scenario only"
+              onSaveToLibrary={() => saveCustomToLibrary('investment', inv.id, inv.label)}
+              savedToLibrary={Boolean(savedToLibrary[inv.id])}
+            >
+              <InvestmentItem
+                i={inv}
+                planStartYear={mergedScenario.startYear}
+                planStartMonthIdx={mergedScenario.startMonthIdx}
+                horizonYears={mergedScenario.horizonYears}
+                onChange={p => changeInvestment(inv.id, p)}
+                onRemove={() => rmInvestment(inv.id)}
+              />
+            </CustomItemWrapper>
           ))}
         </section>
 
@@ -722,8 +809,15 @@ export function PlanEditor({ initialScenario, color, markers, onSave, onCancel, 
             </p>
           )}
           {raises.map(r => (
-            <RaiseItem key={r.id} r={r} startYear={mergedScenario.startYear} taxPct={mergedScenario.taxPct} baseSalary={mergedScenario.baseSalary}
-              onChange={patch => changeRaise(r.id, patch)} onRemove={() => rmRaise(r.id)} />
+            <CustomItemWrapper
+              key={r.id}
+              kindLabel="Custom raise · scenario only"
+              onSaveToLibrary={() => saveCustomToLibrary('raise', r.id, `${MONTHS[r.monthIdx]} ${r.year} raise`)}
+              savedToLibrary={Boolean(savedToLibrary[r.id])}
+            >
+              <RaiseItem r={r} startYear={mergedScenario.startYear} taxPct={mergedScenario.taxPct} baseSalary={mergedScenario.baseSalary}
+                onChange={patch => changeRaise(r.id, patch)} onRemove={() => rmRaise(r.id)} />
+            </CustomItemWrapper>
           ))}
         </section>
 
@@ -1147,6 +1241,34 @@ export function PlanEditor({ initialScenario, color, markers, onSave, onCancel, 
           </button>
         </div>
       </div>
+
+      <Modal
+        open={copiedInfo != null}
+        title="Copied to I/O library"
+        onDismiss={() => setCopiedInfo(null)}
+        actions={copiedInfo == null ? [] : [
+          {
+            label: 'View it',
+            variant: 'secondary',
+            href: `/io?focus=${encodeURIComponent(copiedInfo.libraryId)}`,
+            target: '_blank',
+            ariaLabel: 'Open the I/O library in a new tab',
+            onClick: () => setCopiedInfo(null),
+          },
+          {
+            label: 'Thanks!',
+            variant: 'primary',
+            onClick: () => setCopiedInfo(null),
+          },
+        ]}
+      >
+        {copiedInfo && (
+          <>
+            <strong style={{ color: COLORS.text }}>{copiedInfo.itemName}</strong> was added to your global I/O library as a new {KIND_LABEL[copiedInfo.kind]}.
+            The original library item (if any) is untouched, and this scenario keeps its own custom copy.
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

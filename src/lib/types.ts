@@ -174,8 +174,10 @@ export interface Plan {
   description: string;
   color:       string;
   scenario:    Scenario;
-  /** Plan-level annotations rendered on charts. Not consumed by the simulator. */
+  /** Plan-specific custom markers (in addition to library markers, minus excluded ones). */
   markers?:    Marker[];
+  /** Library marker IDs hidden from this plan (e.g. after forking, or just per-plan opt-out). */
+  excludedMarkerIds?: string[];
   created:     string;
   updated:     string;
 }

@@ -219,6 +219,7 @@ export function sanitizePlan(raw: unknown): Plan | null {
   if (typeof r.id !== 'string' || typeof r.title !== 'string') return null;
   const scenario = sanitizeScenario(r.scenario);
   const markers = sanitizeMarkerArray(r.markers);
+  const excludedMarkerIds = safeStringArray(r.excludedMarkerIds);
   return {
     id: r.id,
     user: typeof r.user === 'string' ? r.user : '',
@@ -227,6 +228,7 @@ export function sanitizePlan(raw: unknown): Plan | null {
     color: typeof r.color === 'string' ? r.color : '#C9F53A',
     scenario,
     markers: markers.length > 0 ? markers : undefined,
+    excludedMarkerIds: excludedMarkerIds.length > 0 ? excludedMarkerIds : undefined,
     created: typeof r.created === 'string' ? r.created : new Date().toISOString(),
     updated: typeof r.updated === 'string' ? r.updated : new Date().toISOString(),
   };

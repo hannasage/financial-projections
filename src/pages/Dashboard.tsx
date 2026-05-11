@@ -168,6 +168,7 @@ export default function Dashboard() {
         color,
         scenario: plan.scenario,
         markers: plan.markers?.map(m => ({ ...m, id: crypto.randomUUID() })),
+        excludedMarkerIds: plan.excludedMarkerIds ? [...plan.excludedMarkerIds] : undefined,
       });
     } catch (e) { console.error(e); }
   };

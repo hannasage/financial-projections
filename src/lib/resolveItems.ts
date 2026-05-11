@@ -1,4 +1,4 @@
-import type { Scenario, Debt, Purchase, Raise, Investment, RecurringCharge } from './types';
+import type { Scenario, Debt, Purchase, Raise, Investment, RecurringCharge, Marker, Plan } from './types';
 import type { Profile } from '../stores/libraryStore';
 import { getTodayStartDate } from './constants';
 
@@ -30,6 +30,21 @@ export function resolveItems(scenario: Scenario, library: LibraryData): LibraryD
       ...(scenario.recurringCharges ?? []),
     ],
   };
+}
+
+/**
+ * Resolve the effective markers for a plan: library markers minus the ones the plan has
+ * excluded, plus the plan's own custom markers. Returns library markers first so the chart
+ * legend orders them stably.
+ */
+export function resolveMarkers(
+  planInput: Pick<Plan, 'markers' | 'excludedMarkerIds'> | null | undefined,
+  libraryMarkers: Marker[] | undefined,
+): Marker[] {
+  const plan = planInput ?? {};
+  const excluded = new Set(plan.excludedMarkerIds ?? []);
+  const lib = (libraryMarkers ?? []).filter(m => !excluded.has(m.id));
+  return [...lib, ...(plan.markers ?? [])];
 }
 
 export function mergeIntoScenario(scenario: Scenario, library: LibraryData): Scenario {

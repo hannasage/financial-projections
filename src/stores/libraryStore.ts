@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-import type { Debt, Purchase, Raise, Scenario, Investment, RecurringCharge } from '../lib/types';
+import type { Debt, Purchase, Raise, Scenario, Investment, RecurringCharge, Marker } from '../lib/types';
 import { getTodayStartDate } from '../lib/constants';
 
 export type Profile = Pick<Scenario,
@@ -60,6 +60,8 @@ interface LibraryState {
   raises:     Raise[];
   investments:     Investment[];
   recurringCharges: RecurringCharge[];
+  /** Phase markers shared across plans (each plan can exclude or fork specific ones). */
+  markers:    Marker[];
   addDebt:        (d: Omit<Debt, 'id'>) => string;
   updateDebt:     (id: string, patch: Partial<Debt>) => void;
   removeDebt:     (id: string) => void;
@@ -75,6 +77,10 @@ interface LibraryState {
   addRecurringCharge:  (c: Omit<RecurringCharge, 'id'>) => string;
   updateRecurringCharge: (id: string, patch: Partial<RecurringCharge>) => void;
   removeRecurringCharge: (id: string) => void;
+  addMarker:       (m: Omit<Marker, 'id'>) => string;
+  updateMarker:    (id: string, patch: Partial<Marker>) => void;
+  removeMarker:    (id: string) => void;
+  setMarkers:      (markers: Marker[]) => void;
 }
 
 export const useLibraryStore = create<LibraryState>()(
@@ -89,6 +95,7 @@ export const useLibraryStore = create<LibraryState>()(
         raises:    [],
         investments:     [],
         recurringCharges: [],
+        markers:   [],
 
         addDebt: (d) => {
           const id = crypto.randomUUID();
@@ -139,6 +146,17 @@ export const useLibraryStore = create<LibraryState>()(
           set(s => ({ recurringCharges: s.recurringCharges.map(x => x.id === id ? { ...x, ...patch } : x) })),
         removeRecurringCharge: (id) =>
           set(s => ({ recurringCharges: s.recurringCharges.filter(x => x.id !== id) })),
+
+        addMarker: (m) => {
+          const id = crypto.randomUUID();
+          set(s => ({ markers: [...s.markers, { ...m, id }] }));
+          return id;
+        },
+        updateMarker: (id, patch) =>
+          set(s => ({ markers: s.markers.map(m => m.id === id ? { ...m, ...patch } : m) })),
+        removeMarker: (id) =>
+          set(s => ({ markers: s.markers.filter(m => m.id !== id) })),
+        setMarkers: (markers) => set({ markers }),
       }),
       {
         name: 'projection-library',
@@ -151,6 +169,7 @@ export const useLibraryStore = create<LibraryState>()(
             profile: normalizeProfile(persisted.profile ?? current.profile),
             investments: persisted.investments ?? current.investments,
             recurringCharges: persisted.recurringCharges ?? current.recurringCharges,
+            markers: persisted.markers ?? current.markers,
           };
         },
       },
