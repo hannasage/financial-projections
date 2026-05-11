@@ -17,7 +17,7 @@ const DEFAULT_PROFILE: Profile = {
   baseSalary: 60_000, housingCost: 1_200, monthlyAllowance: 0,
 };
 
-function normalizeProfile(input?: Partial<Profile> | null): Profile {
+export function normalizeProfile(input?: Partial<Profile> | null): Profile {
   const from = input ?? {};
   const normalizedMonth = Number.isFinite(Number(from.startMonthIdx))
     ? Math.max(0, Math.min(11, Number(from.startMonthIdx)))

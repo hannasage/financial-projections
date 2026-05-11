@@ -35,6 +35,8 @@ interface PlansState {
   plans:         Plan[];
   activePlanIds: Set<string>;
   setPlans:      (plans: Plan[]) => void;
+  /** Replace plans + persisted order/selection (used for backup import in local mode). */
+  importSnapshot: (plans: Plan[], order: string[], active: string[]) => void;
   upsertPlan:    (plan: Plan) => void;
   removePlan:    (id: string) => void;
   reorderPlans:  (ids: string[]) => void;
@@ -58,6 +60,19 @@ export const usePlansStore = create<PlansState>((set) => ({
       : allIds;
     const activePlanIds = restored.size > 0 ? restored : allIds;
     set({ plans: ordered, activePlanIds });
+  },
+
+  importSnapshot(plans, order, active) {
+    const ids = plans.map(p => p.id);
+    const allIds = new Set(ids);
+    let finalOrder = order.filter(id => allIds.has(id));
+    if (finalOrder.length === 0) finalOrder = [...ids];
+    saveOrder(finalOrder);
+    let act = active.filter(id => allIds.has(id));
+    if (act.length === 0) act = [...allIds];
+    saveActive(act);
+    const ordered = applyOrder(plans, finalOrder);
+    set({ plans: ordered, activePlanIds: new Set(act) });
   },
 
   reorderPlans(ids) {

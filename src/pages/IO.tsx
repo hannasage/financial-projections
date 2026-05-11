@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useColors } from '../stores/themeStore';
 import { useAuthStore } from '../stores/authStore';
@@ -12,6 +13,7 @@ import { InvestmentItem } from '../components/plan/InvestmentItem';
 import { RecurringChargeItem } from '../components/plan/RecurringChargeItem';
 import { ThemeSelector } from '../components/shared/ThemeSelector';
 import { scrollIoItemIntoViewAndFocus } from '../lib/ioScrollFocus';
+import { applyBackup, downloadBackupJson, downloadSummaryCsv, parseBackupJson } from '../lib/dataBackup';
 
 const ioItemAnchor: React.CSSProperties = {
   scrollMarginTop: 24,
@@ -22,6 +24,8 @@ export default function IO() {
   const COLORS  = useColors();
   const logout  = useAuthStore(s => s.logout);
   const library = useLibraryStore();
+  const backupFileRef = useRef<HTMLInputElement>(null);
+  const [backupMsg, setBackupMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   const p = library.profile;
   const sp = (patch: Partial<typeof p>) => library.setProfile(patch);
@@ -92,6 +96,50 @@ export default function IO() {
       label: '', initialAmount: 0, annualReturnPct: 7, monthlyContribution: 200,
     });
     scrollIoItemIntoViewAndFocus(id);
+  };
+
+  const handleExportBackupJson = () => {
+    downloadBackupJson();
+    setBackupMsg({ kind: 'ok', text: 'JSON backup downloaded.' });
+  };
+
+  const handleExportSummaryCsv = () => {
+    downloadSummaryCsv();
+    setBackupMsg({ kind: 'ok', text: 'CSV summary downloaded (for spreadsheets only — import uses JSON).' });
+  };
+
+  const handleImportPick = () => backupFileRef.current?.click();
+
+  const handleImportFile: React.ChangeEventHandler<HTMLInputElement> = async e => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    const confirmMsg = LOCAL_MODE
+      ? 'Replace all I/O data and every saved scenario on this device with this backup? This cannot be undone.'
+      : 'Replace all I/O library data on this device? Your scenarios stay tied to your online account. This cannot be undone.';
+    if (!window.confirm(confirmMsg)) return;
+
+    let text: string;
+    try {
+      text = await file.text();
+    } catch {
+      setBackupMsg({ kind: 'err', text: 'Could not read that file.' });
+      return;
+    }
+
+    const parsed = parseBackupJson(text);
+    if (!parsed) {
+      setBackupMsg({ kind: 'err', text: 'Not a valid Projection backup (expected a JSON file from Export backup).' });
+      return;
+    }
+
+    const result = applyBackup(parsed);
+    if (!result.ok) {
+      setBackupMsg({ kind: 'err', text: result.error });
+      return;
+    }
+    setBackupMsg({ kind: 'ok', text: result.detail });
   };
 
   return (
@@ -368,6 +416,57 @@ export default function IO() {
               />
             </div>
           ))}
+        </section>
+
+        <section className="sec" aria-label="Backup and restore">
+          <span style={{ ...labelStyle, display: 'block', marginBottom: 8 }}>💾 Backup & restore</span>
+          <p style={{ fontSize: 11, color: COLORS.muted, lineHeight: 1.65, marginBottom: 12 }}>
+            Export a JSON backup to move your I/O library{LOCAL_MODE ? ' and saved scenarios' : ''} to another browser or machine, then use Import on the new device.
+            The CSV export is a flat summary for spreadsheets and cannot be re-imported.
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+            <button type="button" onClick={handleExportBackupJson} style={addBtnStyle}>
+              Export backup (JSON)
+            </button>
+            <button type="button" onClick={handleExportSummaryCsv} style={addBtnStyle}>
+              Export summary (CSV)
+            </button>
+            <button
+              type="button"
+              onClick={handleImportPick}
+              style={{
+                ...addBtnStyle,
+                border: `1px solid ${COLORS.accent}`,
+                color: COLORS.accent,
+              }}
+            >
+              Import backup…
+            </button>
+            <input
+              ref={backupFileRef}
+              type="file"
+              accept="application/json,.json"
+              style={{ display: 'none' }}
+              aria-hidden
+              onChange={handleImportFile}
+            />
+          </div>
+          {backupMsg && (
+            <div
+              role="status"
+              style={{
+                fontSize: 11,
+                padding: '8px 12px',
+                borderRadius: 4,
+                border: `1px solid ${backupMsg.kind === 'ok' ? `${COLORS.accent}45` : `${COLORS.red}45`}`,
+                background: backupMsg.kind === 'ok' ? `${COLORS.accent}0F` : `${COLORS.red}12`,
+                color: backupMsg.kind === 'ok' ? COLORS.text : COLORS.red,
+                lineHeight: 1.5,
+              }}
+            >
+              {backupMsg.text}
+            </div>
+          )}
         </section>
 
       </main>
