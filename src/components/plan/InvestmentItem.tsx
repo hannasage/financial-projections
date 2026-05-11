@@ -7,11 +7,19 @@ interface Props {
   /** Calendar anchor for default start / year dropdowns (plan or profile start year). */
   planStartYear: number;
   planStartMonthIdx: number;
+  horizonYears: number;
   onChange:   (patch: Partial<Investment>) => void;
   onRemove:   () => void;
 }
 
-export function InvestmentItem({ i, onChange, onRemove, planStartYear, planStartMonthIdx }: Props) {
+export function InvestmentItem({
+  i,
+  onChange,
+  onRemove,
+  planStartYear,
+  planStartMonthIdx,
+  horizonYears,
+}: Props) {
   const COLORS = useColors();
   const S = {
     label: { fontSize: 10, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase' as const },
@@ -31,7 +39,7 @@ export function InvestmentItem({ i, onChange, onRemove, planStartYear, planStart
 
   const startY = i.startYear ?? planStartYear;
   const startM = i.startMonthIdx ?? planStartMonthIdx;
-  const yearOpts = buildPurchaseYears(planStartYear);
+  const yearOpts = buildPurchaseYears(planStartYear, horizonYears);
   const hasSale = i.sellYear != null && i.sellMonthIdx != null;
   const adjustments = i.adjustments ?? [];
 

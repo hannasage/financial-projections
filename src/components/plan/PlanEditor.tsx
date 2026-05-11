@@ -603,6 +603,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
           )}
           {purchases.map(p => (
             <PurchaseItem key={p.id} p={p} startYear={mergedScenario.startYear} startMonthIdx={mergedScenario.startMonthIdx} housingCost={mergedScenario.housingCost}
+              horizonYears={mergedScenario.horizonYears}
               onChange={patch => changePurchase(p.id, patch)} onRemove={() => rmPurchase(p.id)} />
           ))}
         </section>
@@ -662,6 +663,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
               i={inv}
               planStartYear={mergedScenario.startYear}
               planStartMonthIdx={mergedScenario.startMonthIdx}
+              horizonYears={mergedScenario.horizonYears}
               onChange={p => changeInvestment(inv.id, p)}
               onRemove={() => rmInvestment(inv.id)}
             />

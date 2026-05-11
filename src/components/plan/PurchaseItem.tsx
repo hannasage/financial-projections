@@ -11,9 +11,18 @@ interface Props {
   housingCost: number;
   startYear?:  number;
   startMonthIdx?: number;
+  horizonYears?: number;
 }
 
-export function PurchaseItem({ p, onChange, onRemove, housingCost, startYear = START_YEAR, startMonthIdx = 0 }: Props) {
+export function PurchaseItem({
+  p,
+  onChange,
+  onRemove,
+  housingCost,
+  startYear = START_YEAR,
+  startMonthIdx = 0,
+  horizonYears = 25,
+}: Props) {
   const COLORS = useColors();
 
   const S = {
@@ -67,7 +76,7 @@ export function PurchaseItem({ p, onChange, onRemove, housingCost, startYear = S
     ? (payMo >= 9999 ? 'never' : payMo === 0 ? '—'
         : `${MONTHS[payMo % 12]} ${startYear + Math.floor(payMo / 12)}`)
     : payoffLabel(p, startYear, startMonthIdx);
-  const purchaseYears = buildPurchaseYears(startYear);
+  const purchaseYears = buildPurchaseYears(startYear, horizonYears);
 
   const multOptions = [
     { mult: 1,   label: '1×',   color: COLORS.blue   },

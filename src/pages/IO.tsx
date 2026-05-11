@@ -455,6 +455,7 @@ export default function IO() {
                 p={pur}
                 startYear={p.startYear}
                 startMonthIdx={p.startMonthIdx}
+                horizonYears={p.horizonYears}
                 housingCost={library.profile.housingCost}
                 onChange={patch => library.updatePurchase(pur.id, patch)}
                 onRemove={() => library.removePurchase(pur.id)}
@@ -483,6 +484,7 @@ export default function IO() {
                 i={inv}
                 planStartYear={p.startYear}
                 planStartMonthIdx={p.startMonthIdx}
+                horizonYears={p.horizonYears}
                 onChange={patch => library.updateInvestment(inv.id, patch)}
                 onRemove={() => library.removeInvestment(inv.id)}
               />

@@ -13,8 +13,17 @@ export function getTodayStartDate(): { startYear: number; startMonthIdx: number 
 export const buildYears = (startYear: number, count = 20): number[] =>
   Array.from({ length: count }, (_, i) => startYear + i);
 
-export const buildPurchaseYears = (startYear: number): number[] =>
-  Array.from({ length: 36 }, (_, i) => startYear - 10 + i);
+export const buildPurchaseYears = (
+  startYear: number,
+  horizonYears = 25,
+  pastYears = 10,
+): number[] => {
+  const futureYears = Math.max(0, Math.round(horizonYears));
+  return Array.from(
+    { length: pastYears + futureYears + 1 },
+    (_, i) => startYear - pastYears + i,
+  );
+};
 
 export const YEARS          = buildYears(START_YEAR, 20);
 export const PURCHASE_YEARS = buildPurchaseYears(START_YEAR);
