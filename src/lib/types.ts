@@ -149,6 +149,24 @@ export interface SimRow {
   investmentBalancesById: Record<string, number>;
 }
 
+/** Semantic theme color keys allowed for plan markers (resolved at render via the active theme). */
+export type MarkerColorKey = 'accent' | 'blue' | 'orange' | 'red' | 'purple' | 'dim';
+
+export const MARKER_COLOR_KEYS: MarkerColorKey[] = ['accent', 'blue', 'orange', 'red', 'purple', 'dim'];
+
+/** Plan-level annotation rendered on charts (e.g. "Asset Phase", "Kids in College"). */
+export interface Marker {
+  id:            string;
+  title:         string;
+  /** Theme color key — resolved against the active theme so markers track the user's palette. */
+  color:         MarkerColorKey;
+  startYear:     number;
+  startMonthIdx: number;
+  /** Optional ending date — when both endYear and endMonthIdx are set, marker renders as a range. */
+  endYear?:      number;
+  endMonthIdx?:  number;
+}
+
 export interface Plan {
   id:          string;
   user:        string;
@@ -156,6 +174,8 @@ export interface Plan {
   description: string;
   color:       string;
   scenario:    Scenario;
+  /** Plan-level annotations rendered on charts. Not consumed by the simulator. */
+  markers?:    Marker[];
   created:     string;
   updated:     string;
 }

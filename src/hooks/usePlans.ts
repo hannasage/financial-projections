@@ -3,7 +3,8 @@ import { LOCAL_MODE } from '../lib/mode';
 import { pb } from '../lib/pb';
 import { usePlansStore } from '../stores/plansStore';
 import { useAuthStore } from '../stores/authStore';
-import type { Plan, Scenario } from '../lib/types';
+import { sanitizeMarkerArray } from '../lib/sanitizeFinanceData';
+import type { Marker, Plan, Scenario } from '../lib/types';
 
 // ── Local-mode persistence ────────────────────────────────────────────────────
 
@@ -20,6 +21,11 @@ function saveLocalPlans(plans: Plan[]) {
 // ── PocketBase helpers ────────────────────────────────────────────────────────
 
 function parsePlan(raw: Record<string, unknown>): Plan {
+  let markersRaw: unknown = raw.markers;
+  if (typeof markersRaw === 'string') {
+    try { markersRaw = JSON.parse(markersRaw); } catch { markersRaw = []; }
+  }
+  const markers = sanitizeMarkerArray(markersRaw);
   return {
     id:          raw.id as string,
     user:        raw.user as string,
@@ -29,6 +35,7 @@ function parsePlan(raw: Record<string, unknown>): Plan {
     scenario:    typeof raw.scenario === 'string'
                    ? JSON.parse(raw.scenario) as Scenario
                    : raw.scenario as Scenario,
+    markers:     markers.length > 0 ? markers : undefined,
     created:     raw.created as string,
     updated:     raw.updated as string,
   };
@@ -75,7 +82,8 @@ export function usePlans() {
   // ── createPlan ──────────────────────────────────────────────────────────────
 
   const createPlan = useCallback(
-    async (data: { title: string; description: string; color: string; scenario: Scenario }): Promise<Plan> => {
+    async (data: { title: string; description: string; color: string; scenario: Scenario; markers?: Marker[] }): Promise<Plan> => {
+      const cleanMarkers = sanitizeMarkerArray(data.markers);
       if (LOCAL_MODE) {
         const plan: Plan = {
           id:          crypto.randomUUID(),
@@ -84,6 +92,7 @@ export function usePlans() {
           description: data.description,
           color:       data.color,
           scenario:    data.scenario,
+          markers:     cleanMarkers.length > 0 ? cleanMarkers : undefined,
           created:     new Date().toISOString(),
           updated:     new Date().toISOString(),
         };
@@ -99,6 +108,7 @@ export function usePlans() {
         description: data.description,
         color:       data.color,
         scenario:    JSON.stringify(data.scenario),
+        markers:     JSON.stringify(cleanMarkers),
       });
       const plan = parsePlan(raw as unknown as Record<string, unknown>);
       upsert(plan);
@@ -110,12 +120,20 @@ export function usePlans() {
   // ── updatePlan ──────────────────────────────────────────────────────────────
 
   const updatePlan = useCallback(
-    async (id: string, data: { title?: string; description?: string; color?: string; scenario?: Scenario }): Promise<Plan> => {
+    async (id: string, data: { title?: string; description?: string; color?: string; scenario?: Scenario; markers?: Marker[] }): Promise<Plan> => {
+      const cleanMarkers = data.markers !== undefined ? sanitizeMarkerArray(data.markers) : undefined;
       if (LOCAL_MODE) {
         const all      = getLocalPlans();
         const existing = all.find(p => p.id === id);
         if (!existing) throw new Error('Plan not found');
-        const updated: Plan = { ...existing, ...data, updated: new Date().toISOString() };
+        const updated: Plan = {
+          ...existing,
+          ...data,
+          markers: cleanMarkers !== undefined
+            ? (cleanMarkers.length > 0 ? cleanMarkers : undefined)
+            : existing.markers,
+          updated: new Date().toISOString(),
+        };
         saveLocalPlans(all.map(p => p.id === id ? updated : p));
         upsert(updated);
         return updated;
@@ -123,6 +141,7 @@ export function usePlans() {
 
       const payload: Record<string, unknown> = { ...data };
       if (data.scenario) payload.scenario = JSON.stringify(data.scenario);
+      if (cleanMarkers !== undefined) payload.markers = JSON.stringify(cleanMarkers);
       const raw  = await pb.collection('plans').update(id, payload);
       const plan = parsePlan(raw as unknown as Record<string, unknown>);
       upsert(plan);

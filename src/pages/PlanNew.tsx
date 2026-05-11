@@ -6,7 +6,8 @@ import { usePlans } from '../hooks/usePlans';
 import { useLibraryStore } from '../stores/libraryStore';
 import { PlanEditor } from '../components/plan/PlanEditor';
 import { ColorPicker } from '../components/shared/ColorPicker';
-import type { Scenario } from '../lib/types';
+import { MarkersEditor } from '../components/plan/MarkersEditor';
+import type { Marker, Scenario } from '../lib/types';
 
 export default function PlanNew() {
   const COLORS         = useColors();
@@ -19,6 +20,7 @@ export default function PlanNew() {
   const [color,       setColor]       = useState<string>(
     useThemeStore.getState().theme.planColors[0]?.value ?? '#C9F53A',
   );
+  const [markers,     setMarkers]     = useState<Marker[]>([]);
   const [saving,      setSaving]      = useState(false);
   const [error,       setError]       = useState('');
 
@@ -38,7 +40,7 @@ export default function PlanNew() {
     setSaving(true);
     setError('');
     try {
-      await createPlan({ title: title.trim(), description, color, scenario });
+      await createPlan({ title: title.trim(), description, color, scenario, markers });
       navigate('/scenarios');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Save failed.');
@@ -75,6 +77,14 @@ export default function PlanNew() {
             <span style={S.label}>Color</span>
             <ColorPicker value={color} onChange={setColor} />
           </div>
+          <div>
+            <MarkersEditor
+              markers={markers}
+              onChange={setMarkers}
+              defaultStartYear={profile.startYear}
+              defaultStartMonthIdx={profile.startMonthIdx}
+            />
+          </div>
           {error && (
             <div style={{ fontSize: 11, color: COLORS.red, padding: '7px 10px', background: `${COLORS.red}15`, borderRadius: 4, border: `1px solid ${COLORS.red}30` }}>
               {error}
@@ -93,6 +103,7 @@ export default function PlanNew() {
           excludedInvestmentIds: [], excludedRecurringChargeIds: [],
         }}
         color={color}
+        markers={markers}
         onSave={handleSave}
         onCancel={() => navigate('/scenarios')}
         isSaving={saving}

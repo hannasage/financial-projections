@@ -162,7 +162,13 @@ export default function Dashboard() {
   const handleDuplicate = async (plan: Plan) => {
     const color = pickRandomColor(plans.map(p => p.color), planColors);
     try {
-      await createPlan({ title: `${plan.title} copy`, description: plan.description, color, scenario: plan.scenario });
+      await createPlan({
+        title: `${plan.title} copy`,
+        description: plan.description,
+        color,
+        scenario: plan.scenario,
+        markers: plan.markers?.map(m => ({ ...m, id: crypto.randomUUID() })),
+      });
     } catch (e) { console.error(e); }
   };
 

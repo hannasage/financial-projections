@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react';
 import { useColors } from '../../stores/themeStore';
 import { useThemeStore } from '../../stores/themeStore';
 import { usePlansStore } from '../../stores/plansStore';
+import { useLibraryStore } from '../../stores/libraryStore';
 import { usePlans } from '../../hooks/usePlans';
 import { PlanEditor } from './PlanEditor';
 import { ColorPicker } from '../shared/ColorPicker';
-import type { Scenario } from '../../lib/types';
+import { MarkersEditor } from './MarkersEditor';
+import { mergeIntoScenario } from '../../lib/resolveItems';
+import type { Marker, Scenario } from '../../lib/types';
 
 function useIsMobile() {
   const [mobile, setMobile] = useState(() => window.innerWidth < 640);
@@ -26,13 +29,16 @@ interface Props {
 export function PlanEditDrawer({ planId, onClose }: Props) {
   const COLORS   = useColors();
   const plans    = usePlansStore(s => s.plans);
+  const library  = useLibraryStore();
   const { updatePlan } = usePlans();
   const isMobile = useIsMobile();
   const plan     = plans.find(p => p.id === planId) ?? null;
+  const merged   = plan ? mergeIntoScenario(plan.scenario, library) : null;
 
   const [title,       setTitle]       = useState('');
   const [description, setDescription] = useState('');
   const [color,       setColor]       = useState('#C9F53A');
+  const [markers,     setMarkers]     = useState<Marker[]>([]);
   const [saving,      setSaving]      = useState(false);
   const [error,       setError]       = useState('');
   const [open,        setOpen]        = useState(false);
@@ -49,6 +55,7 @@ export function PlanEditDrawer({ planId, onClose }: Props) {
     setTitle(plan.title ?? '');
     setDescription(plan.description ?? '');
     setColor(plan.color ?? useThemeStore.getState().theme.planColors[0]?.value ?? '#C9F53A');
+    setMarkers(plan.markers ?? []);
     setSaving(false);
     setError('');
   }, [plan?.id]);
@@ -79,7 +86,7 @@ export function PlanEditDrawer({ planId, onClose }: Props) {
     setSaving(true);
     setError('');
     try {
-      await updatePlan(planId, { title: title.trim(), description, color, scenario });
+      await updatePlan(planId, { title: title.trim(), description, color, scenario, markers });
       handleClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Save failed.');
@@ -192,6 +199,14 @@ export function PlanEditDrawer({ planId, onClose }: Props) {
               <span style={S.label}>Color</span>
               <ColorPicker value={color} onChange={setColor} />
             </div>
+            <div>
+              <MarkersEditor
+                markers={markers}
+                onChange={setMarkers}
+                defaultStartYear={merged?.startYear}
+                defaultStartMonthIdx={merged?.startMonthIdx}
+              />
+            </div>
             {error && (
               <div style={{ fontSize: 11, color: COLORS.red, padding: '7px 10px', background: `${COLORS.red}15`, borderRadius: 4, border: `1px solid ${COLORS.red}30` }}>
                 {error}
@@ -205,6 +220,7 @@ export function PlanEditDrawer({ planId, onClose }: Props) {
           <PlanEditor
             initialScenario={plan.scenario}
             color={color}
+            markers={markers}
             onSave={handleSave}
             onCancel={handleClose}
             isSaving={saving}

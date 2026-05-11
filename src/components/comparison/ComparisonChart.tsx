@@ -8,6 +8,9 @@ import { shortK, money, getReturnRate } from '../../lib/finance';
 import { simulate } from '../../lib/simulate';
 import { useLibraryStore } from '../../stores/libraryStore';
 import { mergeIntoScenario } from '../../lib/resolveItems';
+import { renderMarkerOverlay } from '../plan/MarkerOverlay';
+import { MarkerLegend } from '../plan/MarkerLegend';
+import { getActiveMarkersAt } from '../../lib/markerColors';
 import type { Plan } from '../../lib/types';
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -22,24 +25,55 @@ interface TooltipProps {
   active?:  boolean;
   label?:   number;
   payload?: Array<{ name: string; value: number; color: string }>;
+  /** Plans keyed by series name (dataKey === plan.title || plan.id). */
+  plansByName?: Record<string, Plan>;
 }
 
-function MultiTooltip({ active, label, payload }: TooltipProps) {
+function MultiTooltip({ active, label, payload, plansByName }: TooltipProps) {
   const COLORS = useColors();
   if (!active || !payload?.length) return null;
+  const hoverYr = label ?? 0;
   return (
     <div style={{
       background: COLORS.surface, border: `1px solid ${COLORS.border}`,
       borderRadius: 6, padding: '10px 14px',
-      fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, minWidth: 160,
+      fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, minWidth: 180,
     }}>
-      <div style={{ color: COLORS.muted, marginBottom: 6 }}>{formatDecimalYr(label ?? 0)}</div>
-      {payload.map(p => (
-        <div key={p.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 3 }}>
-          <span style={{ color: p.color }}>{p.name}</span>
-          <span style={{ color: COLORS.text, fontWeight: 500 }}>{money(p.value)}</span>
-        </div>
-      ))}
+      <div style={{ color: COLORS.muted, marginBottom: 6 }}>{formatDecimalYr(hoverYr)}</div>
+      {payload.map(p => {
+        const plan = plansByName?.[p.name];
+        const activeMarkers = plan ? getActiveMarkersAt(plan.markers, hoverYr) : [];
+        return (
+          <div key={p.name} style={{ marginBottom: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 3 }}>
+              <span style={{ color: p.color }}>{p.name}</span>
+              <span style={{ color: COLORS.text, fontWeight: 500 }}>{money(p.value)}</span>
+            </div>
+            {activeMarkers.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
+                {activeMarkers.map(m => (
+                  <span
+                    key={m.id}
+                    title={m.title || 'Untitled'}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      padding: '1px 7px', borderRadius: 999, fontSize: 9,
+                      border: `1px solid ${p.color}55`,
+                      background: `${p.color}14`,
+                      color: COLORS.text,
+                      maxWidth: 160,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: p.color, flexShrink: 0 }} aria-hidden="true" />
+                    {m.title || 'Untitled'}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -87,6 +121,14 @@ export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props)
   }, [tab, activePlans, library]);
 
   const investmentStackMode = tab === 'investments' && activePlans.length === 1 && lonePlanInvestments.length > 0;
+
+  /** Map each Recharts series name back to its plan so the tooltip can look up markers. */
+  const plansByName: Record<string, Plan> = useMemo(() => {
+    const map: Record<string, Plan> = {};
+    for (const plan of activePlans) map[plan.title || plan.id] = plan;
+    return map;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlans.map(p => p.id + p.title).join(',')]);
 
   const chartData = useMemo(() => {
     if (activePlans.length === 0) return [];
@@ -136,9 +178,27 @@ export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props)
     );
   }
 
+  const plansWithMarkers = !investmentStackMode
+    ? activePlans.filter(p => (p.markers?.length ?? 0) > 0)
+    : [];
+
   return (
-    <ResponsiveContainer width="100%" height={280}>
-      <AreaChart data={chartData} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
+    <div>
+      {plansWithMarkers.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+          {plansWithMarkers.map(plan => (
+            <MarkerLegend
+              key={plan.id}
+              markers={plan.markers ?? []}
+              overrideColor={plan.color}
+              groupLabel={plan.title || 'Plan'}
+              compact
+            />
+          ))}
+        </div>
+      )}
+      <ResponsiveContainer width="100%" height={280}>
+        <AreaChart data={chartData} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
         <defs>
           {investmentStackMode
             ? lonePlanInvestments.map((inv, idx) => {
@@ -171,7 +231,17 @@ export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props)
           tick={{ fill: COLORS.muted, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
           axisLine={false} tickLine={false} width={44}
         />
-        <Tooltip content={<MultiTooltip />} />
+        <Tooltip content={<MultiTooltip plansByName={plansByName} />} />
+        {!investmentStackMode && activePlans.flatMap(plan =>
+          renderMarkerOverlay({
+            markers: plan.markers ?? [],
+            minDecimalYr: minYr,
+            maxDecimalYr: maxYr,
+            colors: COLORS,
+            overrideColor: plan.color,
+            keyPrefix: `cmp-mk-${plan.id}`,
+          }),
+        )}
         {investmentStackMode ? (
           <>
             <Legend wrapperStyle={{ fontSize: 10, paddingTop: 4 }} iconType="circle" />
@@ -207,7 +277,8 @@ export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props)
             />
           ))
         )}
-      </AreaChart>
-    </ResponsiveContainer>
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

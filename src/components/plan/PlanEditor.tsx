@@ -17,7 +17,10 @@ import { PurchaseItem } from './PurchaseItem';
 import { RaiseItem } from './RaiseItem';
 import { InvestmentItem } from './InvestmentItem';
 import { RecurringChargeItem } from './RecurringChargeItem';
-import type { Scenario, Debt, Purchase, Raise, Investment, RecurringCharge } from '../../lib/types';
+import { renderMarkerOverlay } from './MarkerOverlay';
+import { MarkerLegend } from './MarkerLegend';
+import { getActiveMarkersAt, resolveMarkerColor } from '../../lib/markerColors';
+import type { Scenario, Debt, Purchase, Raise, Investment, RecurringCharge, Marker } from '../../lib/types';
 
 const makeId = () => crypto.randomUUID();
 
@@ -52,13 +55,15 @@ function SectionHead({ label, onAdd, addLabel = '+ Add', addBtnStyle, labelStyle
 interface Props {
   initialScenario?: Scenario;
   color?:         string;
+  /** Plan-level markers to overlay on charts. Editor itself does not edit them — see MarkersEditor. */
+  markers?:       Marker[];
   onSave:         (scenario: Scenario) => void;
   onCancel:       () => void;
   isSaving?:      boolean;
   footerPosition?: 'fixed' | 'sticky';
 }
 
-export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving, footerPosition = 'fixed' }: Props) {
+export function PlanEditor({ initialScenario, color, markers, onSave, onCancel, isSaving, footerPosition = 'fixed' }: Props) {
   const COLORS = useColors();
   const planPalette = usePlanColors();
   const themeAccent = useThemeStore(s => s.theme.colors.accent);
@@ -772,6 +777,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
         <section className="sec" aria-label="Cash savings trajectory chart">
           <h2 style={{ ...S.label, marginBottom: 8 }}>Cash savings</h2>
           <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: 14 }}>Liquid cash only (investment accounts are separate — see year table and net worth). 🛒 purchase · ✓ loan paid</p>
+          {markers && markers.length > 0 && <MarkerLegend markers={markers} />}
           <ResponsiveContainer width="100%" height={230}>
             <AreaChart data={chart} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
               <defs>
@@ -794,7 +800,14 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
                 tick={{ fill: COLORS.muted, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
                 axisLine={false} tickLine={false} width={44}
               />
-              <Tooltip content={<ChartTooltip />} />
+              <Tooltip content={<ChartTooltip markers={markers} />} />
+              {renderMarkerOverlay({
+                markers: markers ?? [],
+                minDecimalYr: chartMinYr,
+                maxDecimalYr: chartStart + chartHorizon,
+                colors: COLORS,
+                keyPrefix: 'mk-liq',
+              })}
               {purchaseMarkers.map((m, i) => (
                 <ReferenceLine key={`buy-${i}`} x={m.buyDecimalYr}
                   stroke={COLORS.orange} strokeDasharray="3 3" strokeWidth={1}
@@ -817,6 +830,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
 
         <section className="sec" aria-label="Debt paydown chart">
           <h2 style={{ ...S.label, marginBottom: 8 }}>Debt Paydown</h2>
+          {markers && markers.length > 0 && <MarkerLegend markers={markers} compact />}
           <ResponsiveContainer width="100%" height={190}>
             <AreaChart data={chart} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
               <defs>
@@ -838,7 +852,14 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
                 tick={{ fill: COLORS.muted, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
                 axisLine={false} tickLine={false} width={44}
               />
-              <Tooltip content={<ChartTooltip variant="debt" />} />
+              <Tooltip content={<ChartTooltip variant="debt" markers={markers} />} />
+              {renderMarkerOverlay({
+                markers: markers ?? [],
+                minDecimalYr: chartMinYr,
+                maxDecimalYr: chartStart + chartHorizon,
+                colors: COLORS,
+                keyPrefix: 'mk-debt',
+              })}
               <Area
                 type="monotone" dataKey="debtOutstanding"
                 stroke={COLORS.red} strokeWidth={2}
@@ -857,6 +878,8 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
           {resolvedInvestments.length === 0 ? (
             <p style={{ fontSize: 11, color: COLORS.muted, fontStyle: 'italic' }}>No investment buckets in this scenario.</p>
           ) : (
+            <>
+            {markers && markers.length > 0 && <MarkerLegend markers={markers} compact />}
             <ResponsiveContainer width="100%" height={240}>
               <AreaChart data={chartInvest} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
                 <defs>
@@ -888,6 +911,8 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
                     if (!active || !tipPayload?.length) return null;
                     const row = tipPayload[0].payload as (typeof data)[number];
                     const mo = row.calendarMonthIdx ?? 0;
+                    const hoverDecimalYr = row.yr + mo / 12;
+                    const activeMarkers = getActiveMarkersAt(markers, hoverDecimalYr);
                     return (
                       <div style={{
                         background: COLORS.surface, border: `1px solid ${COLORS.border}`,
@@ -910,11 +935,42 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
                             );
                           })}
                         </div>
+                        {activeMarkers.length > 0 && (
+                          <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: 6, marginTop: 6 }}>
+                            <div style={{ color: COLORS.muted, fontSize: 9, letterSpacing: 1, marginBottom: 4 }}>
+                              ACTIVE PHASE{activeMarkers.length === 1 ? '' : 'S'}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                              {activeMarkers.map(m => {
+                                const c = resolveMarkerColor(m.color, COLORS);
+                                const endStr = m.endYear != null && m.endMonthIdx != null
+                                  ? `${MONTHS[m.endMonthIdx]} ${m.endYear}`
+                                  : '→';
+                                return (
+                                  <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 6, lineHeight: 1.3 }}>
+                                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: c, flexShrink: 0 }} aria-hidden="true" />
+                                    <span style={{ color: c, fontWeight: 600 }}>{m.title || 'Untitled'}</span>
+                                    <span style={{ color: COLORS.muted, fontSize: 9 }}>
+                                      {MONTHS[m.startMonthIdx]} {m.startYear} → {endStr}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   }}
                 />
                 <Legend wrapperStyle={{ fontSize: 10, paddingTop: 6 }} iconType="circle" />
+                {renderMarkerOverlay({
+                  markers: markers ?? [],
+                  minDecimalYr: chartMinYr,
+                  maxDecimalYr: chartStart + chartHorizon,
+                  colors: COLORS,
+                  keyPrefix: 'mk-inv',
+                })}
                 {resolvedInvestments.map((inv, idx) => {
                   const c = planPalette[idx % planPalette.length].value;
                   return (
@@ -933,6 +989,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
                 })}
               </AreaChart>
             </ResponsiveContainer>
+            </>
           )}
         </section>
 
@@ -941,6 +998,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
           <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: 14 }}>
             Savings plus optional purchase market values minus all debts. Matches the dashboard net worth view.
           </p>
+          {markers && markers.length > 0 && <MarkerLegend markers={markers} compact />}
           <ResponsiveContainer width="100%" height={190}>
             <AreaChart data={chart} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
               <defs>
@@ -962,7 +1020,14 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
                 tick={{ fill: COLORS.muted, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
                 axisLine={false} tickLine={false} width={44}
               />
-              <Tooltip content={<ChartTooltip variant="netWorth" />} />
+              <Tooltip content={<ChartTooltip variant="netWorth" markers={markers} />} />
+              {renderMarkerOverlay({
+                markers: markers ?? [],
+                minDecimalYr: chartMinYr,
+                maxDecimalYr: chartStart + chartHorizon,
+                colors: COLORS,
+                keyPrefix: 'mk-nw',
+              })}
               {purchaseMarkers.map((m, i) => (
                 <ReferenceLine key={`nw-buy-${i}`} x={m.buyDecimalYr}
                   stroke={COLORS.orange} strokeDasharray="3 3" strokeWidth={1}

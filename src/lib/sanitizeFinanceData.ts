@@ -1,6 +1,8 @@
 import type {
   Debt, DebtAdjustment, Purchase, Raise, Investment, RecurringCharge, Scenario, Plan, InvestmentContributionAdjustment,
+  Marker, MarkerColorKey,
 } from './types';
+import { MARKER_COLOR_KEYS } from './types';
 
 function clampFinite(n: unknown, min: number, max: number, fallback = 0): number {
   const x = typeof n === 'number' ? n : Number(n);
@@ -127,6 +129,37 @@ export function sanitizeInvestment(raw: unknown): Investment | null {
   return inv;
 }
 
+export function sanitizeMarker(raw: unknown): Marker | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const id = typeof r.id === 'string' ? r.id : '';
+  if (!id) return null;
+  const color: MarkerColorKey = typeof r.color === 'string' && (MARKER_COLOR_KEYS as string[]).includes(r.color)
+    ? r.color as MarkerColorKey
+    : 'accent';
+  const startYear = clampInt(r.startYear, 1970, 2200, new Date().getFullYear());
+  const startMonthIdx = clampInt(r.startMonthIdx, 0, 11);
+  const hasEnd = r.endYear != null && r.endMonthIdx != null
+    && Number.isFinite(Number(r.endYear)) && Number.isFinite(Number(r.endMonthIdx));
+  const marker: Marker = {
+    id,
+    title: safeString(r.title),
+    color,
+    startYear,
+    startMonthIdx,
+  };
+  if (hasEnd) {
+    marker.endYear = clampInt(r.endYear, 1970, 2200, startYear);
+    marker.endMonthIdx = clampInt(r.endMonthIdx, 0, 11);
+  }
+  return marker;
+}
+
+export function sanitizeMarkerArray(arr: unknown): Marker[] {
+  if (!Array.isArray(arr)) return [];
+  return arr.map(sanitizeMarker).filter((m): m is Marker => m != null);
+}
+
 export function sanitizeRecurringCharge(raw: unknown): RecurringCharge | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
@@ -185,6 +218,7 @@ export function sanitizePlan(raw: unknown): Plan | null {
   const r = raw as Record<string, unknown>;
   if (typeof r.id !== 'string' || typeof r.title !== 'string') return null;
   const scenario = sanitizeScenario(r.scenario);
+  const markers = sanitizeMarkerArray(r.markers);
   return {
     id: r.id,
     user: typeof r.user === 'string' ? r.user : '',
@@ -192,6 +226,7 @@ export function sanitizePlan(raw: unknown): Plan | null {
     description: typeof r.description === 'string' ? r.description : '',
     color: typeof r.color === 'string' ? r.color : '#C9F53A',
     scenario,
+    markers: markers.length > 0 ? markers : undefined,
     created: typeof r.created === 'string' ? r.created : new Date().toISOString(),
     updated: typeof r.updated === 'string' ? r.updated : new Date().toISOString(),
   };
