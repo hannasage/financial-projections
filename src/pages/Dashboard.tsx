@@ -18,6 +18,69 @@ import { ComparisonTable } from '../components/comparison/ComparisonTable';
 import { ThemeSelector } from '../components/shared/ThemeSelector';
 import type { Plan } from '../lib/types';
 
+type ComparisonMetric = 'liquidity' | 'debt' | 'investments' | 'netWorth';
+
+const METRIC_TABS: { metric: ComparisonMetric; label: string; tabId: string }[] = [
+  { metric: 'liquidity', label: 'Liquidity', tabId: 'cmp-tab-liquidity' },
+  { metric: 'debt', label: 'Debt paydown', tabId: 'cmp-tab-debt' },
+  { metric: 'investments', label: 'Investments', tabId: 'cmp-tab-investments' },
+  { metric: 'netWorth', label: 'Net worth', tabId: 'cmp-tab-networth' },
+];
+
+interface ComparisonMetricPickerProps {
+  comparisonTab: ComparisonMetric;
+  setComparisonTab: (m: ComparisonMetric) => void;
+  cmpTabBtn: (active: boolean) => React.CSSProperties;
+  /** Chart: full tab semantics + ids. Table: mirrored buttons (same state, no duplicate ids). */
+  placement: 'chart' | 'table';
+}
+
+function ComparisonMetricPicker({ comparisonTab, setComparisonTab, cmpTabBtn, placement }: ComparisonMetricPickerProps) {
+  if (placement === 'chart') {
+    return (
+      <div
+        role="tablist"
+        aria-label="Comparison metric"
+        style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}
+      >
+        {METRIC_TABS.map(({ metric, label, tabId }) => (
+          <button
+            key={metric}
+            type="button"
+            role="tab"
+            id={tabId}
+            aria-selected={comparisonTab === metric}
+            aria-controls="cmp-chart-panel cmp-table-panel"
+            onClick={() => setComparisonTab(metric)}
+            style={cmpTabBtn(comparisonTab === metric)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div
+      role="group"
+      aria-label="Metric for chart and table (same as trajectory comparison above)"
+      style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}
+    >
+      {METRIC_TABS.map(({ metric, label }) => (
+        <button
+          key={metric}
+          type="button"
+          aria-pressed={comparisonTab === metric}
+          onClick={() => setComparisonTab(metric)}
+          style={cmpTabBtn(comparisonTab === metric)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function pickRandomColor(usedColors: string[], planColors: { value: string }[]): string {
   const unused = planColors.filter(c => !usedColors.includes(c.value));
   const pool   = unused.length > 0 ? unused : planColors;
@@ -35,10 +98,11 @@ export default function Dashboard() {
 
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [clipYears,     setClipYears]     = useState<number | null>(null);
-  const [comparisonTab, setComparisonTab] = useState<'liquidity' | 'debt' | 'netWorth'>('liquidity');
+  const [comparisonTab, setComparisonTab] = useState<ComparisonMetric>('liquidity');
   const cmpTabLabelId = comparisonTab === 'liquidity' ? 'cmp-tab-liquidity'
     : comparisonTab === 'debt' ? 'cmp-tab-debt'
-      : 'cmp-tab-networth';
+      : comparisonTab === 'investments' ? 'cmp-tab-investments'
+        : 'cmp-tab-networth';
 
   const maxHorizon  = useMemo(() => plans.reduce((mx, p) => Math.max(mx, p.scenario.horizonYears), 0), [plans]);
   const clipOptions = useMemo(() => [1, 3, 5, 7, 10].filter(v => v < maxHorizon), [maxHorizon]);
@@ -178,51 +242,20 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
-              <div
-                role="tablist"
-                aria-label="Comparison metric"
-                style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={comparisonTab === 'liquidity'}
-                  aria-controls="cmp-chart-panel cmp-table-panel"
-                  id="cmp-tab-liquidity"
-                  onClick={() => setComparisonTab('liquidity')}
-                  style={cmpTabBtn(comparisonTab === 'liquidity')}
-                >
-                  Liquidity
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={comparisonTab === 'debt'}
-                  aria-controls="cmp-chart-panel cmp-table-panel"
-                  id="cmp-tab-debt"
-                  onClick={() => setComparisonTab('debt')}
-                  style={cmpTabBtn(comparisonTab === 'debt')}
-                >
-                  Debt paydown
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={comparisonTab === 'netWorth'}
-                  aria-controls="cmp-chart-panel cmp-table-panel"
-                  id="cmp-tab-networth"
-                  onClick={() => setComparisonTab('netWorth')}
-                  style={cmpTabBtn(comparisonTab === 'netWorth')}
-                >
-                  Net worth
-                </button>
-              </div>
+              <ComparisonMetricPicker
+                placement="chart"
+                comparisonTab={comparisonTab}
+                setComparisonTab={setComparisonTab}
+                cmpTabBtn={cmpTabBtn}
+              />
               <p style={{ fontSize: 10, color: COLORS.muted, marginBottom: 12, lineHeight: 1.5 }}>
                 {comparisonTab === 'liquidity'
                   ? 'Cash savings only (investments are in net worth, not treated as liquid until sold).'
                   : comparisonTab === 'debt'
                     ? 'Debt and loan balances owed over time (matches year table balances).'
-                    : 'Net worth: savings plus market value on purchases (when set) minus all debts and loan balances. Purchases without market value count as debt only.'}
+                    : comparisonTab === 'investments'
+                      ? 'Invested balances (compounding + contributions). Compare plans as totals; select one scenario to stack accounts like the plan editor.'
+                      : 'Net worth: savings plus market value on purchases (when set) minus all debts and loan balances. Purchases without market value count as debt only.'}
               </p>
               <div id="cmp-chart-panel" role="tabpanel" aria-labelledby={cmpTabLabelId}>
                 <ComparisonChart plans={plans} activePlanIds={activePlanIds} clipYears={clipYears} tab={comparisonTab} />
@@ -268,12 +301,20 @@ export default function Dashboard() {
               <h2 style={{ fontSize: 11, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase', marginBottom: 8 }}>
                 Year-by-Year
               </h2>
+              <ComparisonMetricPicker
+                placement="table"
+                comparisonTab={comparisonTab}
+                setComparisonTab={setComparisonTab}
+                cmpTabBtn={cmpTabBtn}
+              />
               <p style={{ fontSize: 10, color: COLORS.muted, marginBottom: 12, lineHeight: 1.5 }}>
                 {comparisonTab === 'liquidity'
                   ? 'Per plan: cash savings balance and net monthly change to cash (/mo).'
                   : comparisonTab === 'debt'
                     ? 'Per plan: debt + loan balances owed and combined payments (/mo svc).'
-                    : 'Per plan: net worth at year-end checkpoint and that month’s change (/mo Δ).'}
+                    : comparisonTab === 'investments'
+                      ? 'Per plan: total invested balance at year-end and combined monthly contributions (/mo in).'
+                      : 'Per plan: net worth at year-end checkpoint and that month’s change (/mo Δ).'}
               </p>
               <div id="cmp-table-panel" role="tabpanel" aria-labelledby={cmpTabLabelId}>
                 <ComparisonTable plans={plans} activePlanIds={activePlanIds} clipYears={clipYears} tab={comparisonTab} />

@@ -1,11 +1,11 @@
 import { useState, useMemo, useCallback } from 'react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, ReferenceLine, ResponsiveContainer,
+  Tooltip, ReferenceLine, ResponsiveContainer, Legend,
 } from 'recharts';
 import { MONTHS } from '../../lib/constants';
 import { getTodayStartDate } from '../../lib/constants';
-import { useColors } from '../../stores/themeStore';
+import { useColors, usePlanColors } from '../../stores/themeStore';
 import { useThemeStore } from '../../stores/themeStore';
 import { useLibraryStore } from '../../stores/libraryStore';
 import { absMo, money, shortK, stdPayment, payoffMonths, getReturnRate } from '../../lib/finance';
@@ -59,6 +59,7 @@ interface Props {
 
 export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving, footerPosition = 'fixed' }: Props) {
   const COLORS = useColors();
+  const planPalette = usePlanColors();
   const themeAccent = useThemeStore(s => s.theme.colors.accent);
   const accent = color ?? themeAccent;
   const init = initialScenario ?? DEFAULT_SCENARIO;
@@ -168,6 +169,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
 
   const addInvestment = () => setInvestments(xs => [...xs, {
     id: makeId(), label: '', initialAmount: 0, annualReturnPct: 7, monthlyContribution: 0,
+    startYear: safeStartYear, startMonthIdx: safeStartMonthIdx,
   }]);
   const changeInvestment = useCallback((id: string, patch: Partial<Investment>) => setInvestments(xs => xs.map(x => x.id === id ? { ...x, ...patch } : x)), []);
   const rmInvestment     = useCallback((id: string) => setInvestments(xs => xs.filter(x => x.id !== id)), []);
@@ -204,6 +206,13 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
   const chartMinYr = chartStart - 1 / 12;
   const chartHorizon = mergedScenario.horizonYears;
   const chart  = useMemo(() => data.map(row => ({ ...row, decimalYr: chartStart + row.m / 12 })), [data, chartStart]);
+  const chartInvest = useMemo(() => data.map(row => {
+    const pt: Record<string, unknown> = { ...row, decimalYr: chartStart + row.m / 12 };
+    for (const inv of resolvedInvestments) {
+      pt[`inv_${inv.id}`] = row.investmentBalancesById[inv.id] ?? 0;
+    }
+    return pt;
+  }), [data, chartStart, resolvedInvestments]);
   const snap   = (m: number) => data[Math.min(m, data.length - 1)];
   const endM   = chartHorizon * 12;
 
@@ -217,7 +226,20 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
   }, 0);
   const allowance = mergedScenario.monthlyAllowance ?? 0;
   const nowRecurring = resolvedRecurringCharges.reduce((s, c) => s + Math.max(0, c.amount), 0);
-  const nowInvContrib = resolvedInvestments.reduce((s, i) => s + Math.max(0, i.monthlyContribution), 0);
+  const nowInvContrib = useMemo(() => resolvedInvestments.reduce((s, i) => {
+    const st = absMo(
+      i.startYear ?? mergedScenario.startYear,
+      i.startMonthIdx ?? mergedScenario.startMonthIdx,
+      mergedScenario.startYear,
+      mergedScenario.startMonthIdx,
+    );
+    if (st > 0) return s;
+    if (i.sellYear != null && i.sellMonthIdx != null) {
+      const sellM = absMo(i.sellYear, i.sellMonthIdx, mergedScenario.startYear, mergedScenario.startMonthIdx);
+      if (sellM < 0) return s;
+    }
+    return s + Math.max(0, i.monthlyContribution);
+  }, 0), [resolvedInvestments, mergedScenario.startYear, mergedScenario.startMonthIdx]);
   const effectiveNow = mergedScenario.envelope - mergedScenario.housingCost - allowance - nowRecurring - nowDebtBurden - nowLoanBurden - nowInvContrib;
 
   const scenarioOverviewChips = useMemo(() => {
@@ -622,7 +644,14 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
             </p>
           )}
           {investments.map(inv => (
-            <InvestmentItem key={inv.id} i={inv} onChange={p => changeInvestment(inv.id, p)} onRemove={() => rmInvestment(inv.id)} />
+            <InvestmentItem
+              key={inv.id}
+              i={inv}
+              planStartYear={mergedScenario.startYear}
+              planStartMonthIdx={mergedScenario.startMonthIdx}
+              onChange={p => changeInvestment(inv.id, p)}
+              onRemove={() => rmInvestment(inv.id)}
+            />
           ))}
         </section>
 
@@ -784,6 +813,93 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
               />
             </AreaChart>
           </ResponsiveContainer>
+        </section>
+
+        <section className="sec" aria-label="Investment balances chart">
+          <h2 style={{ ...S.label, marginBottom: 8 }}>Investments</h2>
+          <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: 14 }}>
+            Stacked balances: compounding and monthly adds. This is the full account value, not contributions alone. Sales move after-tax proceeds into cash savings.
+          </p>
+          {resolvedInvestments.length === 0 ? (
+            <p style={{ fontSize: 11, color: COLORS.muted, fontStyle: 'italic' }}>No investment buckets in this scenario.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <AreaChart data={chartInvest} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
+                <defs>
+                  {resolvedInvestments.map((inv, idx) => {
+                    const c = planPalette[idx % planPalette.length].value;
+                    return (
+                      <linearGradient key={inv.id} id={`invGrad-${inv.id}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={c} stopOpacity={0.28} />
+                        <stop offset="95%" stopColor={c} stopOpacity={0.03} />
+                      </linearGradient>
+                    );
+                  })}
+                </defs>
+                <CartesianGrid strokeDasharray="1 6" stroke={COLORS.faint} vertical={false} />
+                <XAxis
+                  dataKey="decimalYr" type="number"
+                  domain={[chartMinYr, chartStart + chartHorizon]}
+                  tickFormatter={v => (v % 1 < 0.05) ? String(Math.round(v)) : ''}
+                  tick={{ fill: COLORS.muted, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
+                  axisLine={false} tickLine={false}
+                />
+                <YAxis
+                  tickFormatter={shortK}
+                  tick={{ fill: COLORS.muted, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
+                  axisLine={false} tickLine={false} width={44}
+                />
+                <Tooltip
+                  content={({ active, payload: tipPayload }) => {
+                    if (!active || !tipPayload?.length) return null;
+                    const row = tipPayload[0].payload as (typeof data)[number];
+                    const mo = row.calendarMonthIdx ?? 0;
+                    return (
+                      <div style={{
+                        background: COLORS.surface, border: `1px solid ${COLORS.border}`,
+                        borderRadius: 6, padding: '10px 14px',
+                        fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, minWidth: 180,
+                      }}>
+                        <div style={{ color: accent, fontWeight: 600, marginBottom: 6 }}>
+                          Age {row.ageFloor} · {MONTHS[mo]} {row.yr}
+                        </div>
+                        <div style={{ color: COLORS.text, fontSize: 12, marginBottom: 6 }}>Total {money(row.investments)}</div>
+                        <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: 6, lineHeight: 1.9 }}>
+                          {resolvedInvestments.map((inv, idx) => {
+                            const v = row.investmentBalancesById[inv.id] ?? 0;
+                            const col = planPalette[idx % planPalette.length].value;
+                            return (
+                              <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}>
+                                <span style={{ color: col }}>{inv.label || `Account ${idx + 1}`}</span>
+                                <span style={{ color: COLORS.text }}>{money(v)}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: 10, paddingTop: 6 }} iconType="circle" />
+                {resolvedInvestments.map((inv, idx) => {
+                  const c = planPalette[idx % planPalette.length].value;
+                  return (
+                    <Area
+                      key={inv.id}
+                      type="monotone"
+                      stackId="inv"
+                      dataKey={`inv_${inv.id}`}
+                      name={inv.label || `Account ${idx + 1}`}
+                      stroke={c}
+                      strokeWidth={1.5}
+                      fill={`url(#invGrad-${inv.id})`}
+                      dot={false}
+                    />
+                  );
+                })}
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </section>
 
         <section className="sec" aria-label="Net worth chart">

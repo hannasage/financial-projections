@@ -10,7 +10,7 @@ interface Props {
   plans:         Plan[];
   activePlanIds: Set<string>;
   clipYears?:    number | null;
-  tab:           'liquidity' | 'debt' | 'netWorth';
+  tab:           'liquidity' | 'debt' | 'netWorth' | 'investments';
 }
 
 export function ComparisonTable({ plans, activePlanIds, clipYears, tab }: Props) {
@@ -64,6 +64,13 @@ export function ComparisonTable({ plans, activePlanIds, clipYears, tab }: Props)
               secondary: svc,
             };
           }
+          if (tab === 'investments') {
+            return {
+              planId:    plan.id,
+              primary:   match?.investments ?? null,
+              secondary: match?.investmentContributions ?? null,
+            };
+          }
           return {
             planId:    plan.id,
             primary:   match?.netWorth ?? null,
@@ -97,7 +104,9 @@ export function ComparisonTable({ plans, activePlanIds, clipYears, tab }: Props)
                     title={
                       tab === 'liquidity' ? 'Cash savings (excludes invested balances)'
                         : tab === 'debt' ? 'Debts + loans owed'
-                          : 'Net worth (savings + market value of purchases − liabilities)'
+                          : tab === 'investments'
+                            ? 'Total invested balance (compounding + contributions; stacked by account when one plan is selected on the chart)'
+                            : 'Net worth (savings + market value of purchases − liabilities)'
                     }
                     style={{ ...thStyle, color: plan.color }}
                   >
@@ -108,11 +117,13 @@ export function ComparisonTable({ plans, activePlanIds, clipYears, tab }: Props)
                     title={
                       tab === 'liquidity' ? 'Net monthly change to cash savings (after debts, loans, and buys to investments)'
                         : tab === 'debt' ? 'Debt + loan payments'
-                          : 'Month-over-month change in net worth'
+                          : tab === 'investments'
+                            ? 'Total monthly envelope contributions to all investment buckets'
+                            : 'Month-over-month change in net worth'
                     }
                     style={{ ...thStyle, color: `${plan.color}99` }}
                   >
-                    {tab === 'liquidity' ? '/mo' : tab === 'debt' ? '/mo svc' : '/mo Δ'}
+                    {tab === 'liquidity' ? '/mo' : tab === 'debt' ? '/mo svc' : tab === 'investments' ? '/mo in' : '/mo Δ'}
                   </th>
                 </Fragment>
               ))}

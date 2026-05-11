@@ -94,6 +94,7 @@ export default function IO() {
   const handleAddInvestment = () => {
     const id = library.addInvestment({
       label: '', initialAmount: 0, annualReturnPct: 7, monthlyContribution: 200,
+      startYear: p.startYear, startMonthIdx: p.startMonthIdx,
     });
     scrollIoItemIntoViewAndFocus(id);
   };
@@ -372,7 +373,7 @@ export default function IO() {
             <button type="button" onClick={handleAddInvestment} style={addBtnStyle}>+ Add account</button>
           </div>
           <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: library.investments.length ? 8 : 0 }}>
-            Separate from starting savings: each bucket has its own starting balance, average annual return, and monthly contribution. Counts toward net worth (and the plan year table’s Invest column), not toward liquidity / cash charts.
+            Each bucket: start date, starting balance, return, and monthly buys from the envelope. Optional sale on a date (at modeled value or a set price) with capital-gains tax on realized gain. Counts toward net worth until sold; sale proceeds go to cash.
           </p>
           {library.investments.length === 0 && (
             <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 8, fontStyle: 'italic' }}>
@@ -383,6 +384,8 @@ export default function IO() {
             <div key={inv.id} data-io-item={inv.id} style={ioItemAnchor}>
               <InvestmentItem
                 i={inv}
+                planStartYear={p.startYear}
+                planStartMonthIdx={p.startMonthIdx}
                 onChange={patch => library.updateInvestment(inv.id, patch)}
                 onRemove={() => library.removeInvestment(inv.id)}
               />

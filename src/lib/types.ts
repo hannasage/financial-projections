@@ -76,6 +76,16 @@ export interface Investment {
   /** Annual return % (e.g. 7). Compounded monthly. */
   annualReturnPct:     number;
   monthlyContribution: number;
+  /** First month this bucket exists; defaults to scenario plan start when omitted. */
+  startYear?:          number;
+  startMonthIdx?:      number;
+  /** Sell the entire position in this month; net proceeds after tax go to cash. Omit both for hold. */
+  sellYear?:           number;
+  sellMonthIdx?:       number;
+  /** Gross sale proceeds. Omit to use the modeled balance that month (growth + contributions). */
+  salePrice?:          number;
+  /** Capital gains tax on realized gain only: max(0, proceeds − cost basis) × pct/100. Basis = initial + contributions while held. */
+  capitalGainsTaxPct?: number;
 }
 
 export interface RecurringCharge {
@@ -117,6 +127,8 @@ export interface SimRow {
   netWorth:        number;
   /** Month-over-month change in net worth (first month vs pre-projection baseline). */
   netWorthChange:  number;
+  /** End-of-month balance per investment id (0 before start, after sale, or if excluded). */
+  investmentBalancesById: Record<string, number>;
 }
 
 export interface Plan {

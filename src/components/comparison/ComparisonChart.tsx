@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer,
+  Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
-import { useColors } from '../../stores/themeStore';
+import { useColors, usePlanColors } from '../../stores/themeStore';
 import { shortK, money, getReturnRate } from '../../lib/finance';
 import { simulate } from '../../lib/simulate';
 import { useLibraryStore } from '../../stores/libraryStore';
@@ -48,11 +48,12 @@ interface Props {
   plans:         Plan[];
   activePlanIds: Set<string>;
   clipYears?:    number | null;
-  tab:           'liquidity' | 'debt' | 'netWorth';
+  tab:           'liquidity' | 'debt' | 'netWorth' | 'investments';
 }
 
 export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props) {
   const COLORS      = useColors();
+  const planPalette = usePlanColors();
   const library     = useLibraryStore();
   const activePlans = plans.filter(p => activePlanIds.has(p.id));
   const safeStartYear = Number.isFinite(Number(library.profile.startYear))
@@ -79,6 +80,14 @@ export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props)
   const minYr      = startDecimalYr - 1 / 12;
   const maxYr      = startDecimalYr + clipped;
 
+  const lonePlanInvestments = useMemo(() => {
+    if (tab !== 'investments' || activePlans.length !== 1) return [];
+    const r = mergeIntoScenario(activePlans[0].scenario, library);
+    return r.investments ?? [];
+  }, [tab, activePlans, library]);
+
+  const investmentStackMode = tab === 'investments' && activePlans.length === 1 && lonePlanInvestments.length > 0;
+
   const chartData = useMemo(() => {
     if (activePlans.length === 0) return [];
     const refPlan = activePlans.reduce((a, b) =>
@@ -86,6 +95,21 @@ export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props)
     );
     const maxM   = clipped * 12;
     const refSim = simulations[refPlan.id] ?? [];
+
+    if (investmentStackMode) {
+      const plan = activePlans[0];
+      const sim  = simulations[plan.id] ?? [];
+      return refSim.filter(row => row.m <= maxM).map(row => {
+        const decimalYr = startDecimalYr + row.m / 12;
+        const point: Record<string, number | string> = { decimalYr };
+        const match = sim[row.m];
+        for (const inv of lonePlanInvestments) {
+          point[`inv_${inv.id}`] = match?.investmentBalancesById[inv.id] ?? 0;
+        }
+        return point;
+      });
+    }
+
     return refSim.filter(row => row.m <= maxM).map(row => {
       const decimalYr = startDecimalYr + row.m / 12;
       const point: Record<string, number | string> = { decimalYr };
@@ -96,11 +120,13 @@ export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props)
           ? (match?.liquidTotal ?? 0)
           : tab === 'debt'
             ? (match?.debtOutstanding ?? 0)
-            : (match?.netWorth ?? 0);
+            : tab === 'investments'
+              ? (match?.investments ?? 0)
+              : (match?.netWorth ?? 0);
       }
       return point;
     });
-  }, [activePlans, simulations, clipped, startDecimalYr, tab]);
+  }, [activePlans, simulations, clipped, startDecimalYr, tab, investmentStackMode, lonePlanInvestments]);
 
   if (activePlans.length === 0) {
     return (
@@ -114,12 +140,22 @@ export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props)
     <ResponsiveContainer width="100%" height={280}>
       <AreaChart data={chartData} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
         <defs>
-          {activePlans.map(plan => (
-            <linearGradient key={plan.id} id={`grad-${plan.id}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%"  stopColor={plan.color} stopOpacity={0.25} />
-              <stop offset="95%" stopColor={plan.color} stopOpacity={0.02} />
-            </linearGradient>
-          ))}
+          {investmentStackMode
+            ? lonePlanInvestments.map((inv, idx) => {
+              const c = planPalette[idx % planPalette.length].value;
+              return (
+                <linearGradient key={inv.id} id={`cmp-inv-${inv.id}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor={c} stopOpacity={0.26} />
+                  <stop offset="95%" stopColor={c} stopOpacity={0.02} />
+                </linearGradient>
+              );
+            })
+            : activePlans.map(plan => (
+              <linearGradient key={plan.id} id={`grad-${plan.id}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor={plan.color} stopOpacity={0.25} />
+                <stop offset="95%" stopColor={plan.color} stopOpacity={0.02} />
+              </linearGradient>
+            ))}
         </defs>
         <CartesianGrid strokeDasharray="1 6" stroke={COLORS.faint} vertical={false} />
         <XAxis
@@ -136,18 +172,41 @@ export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props)
           axisLine={false} tickLine={false} width={44}
         />
         <Tooltip content={<MultiTooltip />} />
-        {activePlans.map(plan => (
-          <Area
-            key={plan.id}
-            type="monotone"
-            dataKey={plan.title || plan.id}
-            stroke={plan.color}
-            strokeWidth={2}
-            fill={`url(#grad-${plan.id})`}
-            dot={false}
-            activeDot={{ r: 4, fill: plan.color, strokeWidth: 0 }}
-          />
-        ))}
+        {investmentStackMode ? (
+          <>
+            <Legend wrapperStyle={{ fontSize: 10, paddingTop: 4 }} iconType="circle" />
+            {lonePlanInvestments.map((inv, idx) => {
+              const c = planPalette[idx % planPalette.length].value;
+              return (
+                <Area
+                  key={inv.id}
+                  type="monotone"
+                  stackId="inv"
+                  dataKey={`inv_${inv.id}`}
+                  name={inv.label || `Account ${idx + 1}`}
+                  stroke={c}
+                  strokeWidth={1.5}
+                  fill={`url(#cmp-inv-${inv.id})`}
+                  dot={false}
+                  activeDot={{ r: 4, fill: c, strokeWidth: 0 }}
+                />
+              );
+            })}
+          </>
+        ) : (
+          activePlans.map(plan => (
+            <Area
+              key={plan.id}
+              type="monotone"
+              dataKey={plan.title || plan.id}
+              stroke={plan.color}
+              strokeWidth={2}
+              fill={`url(#grad-${plan.id})`}
+              dot={false}
+              activeDot={{ r: 4, fill: plan.color, strokeWidth: 0 }}
+            />
+          ))
+        )}
       </AreaChart>
     </ResponsiveContainer>
   );

@@ -1,4 +1,4 @@
-import type { Scenario, SimRow, Debt } from './types';
+import type { Scenario, SimRow, Debt, Investment } from './types';
 import { absMo, netMonthly, payoffMonths, stdPayment, remainingBalance } from './finance';
 import { getTodayStartDate } from './constants';
 
@@ -138,10 +138,50 @@ export function simulate(
   const purchaseLoanDyn: number[] = purchaseMeta.map(() => 0);
 
   const recurringTotal = recurringList.reduce((s, c) => s + Math.max(0, c.amount), 0);
-  const invBalances = investmentList.map(i => Math.max(0, i.initialAmount ?? 0));
+
+  type InvMeta = {
+    id: string;
+    startM: number;
+    sellM: number;
+    initial: number;
+    cgPct: number;
+    salePrice?: number;
+  };
+
+  const invMeta: InvMeta[] = investmentList.map((inv: Investment) => {
+    const sy = inv.startYear ?? safeStartYear;
+    const smi = inv.startMonthIdx ?? safeStartMonthIdx;
+    const startM = absMo(sy, smi, safeStartYear, safeStartMonthIdx);
+    let sellM = Infinity;
+    if (inv.sellYear != null && inv.sellMonthIdx != null) {
+      sellM = absMo(inv.sellYear, inv.sellMonthIdx, safeStartYear, safeStartMonthIdx);
+      if (sellM < startM) sellM = Infinity;
+    }
+    return {
+      id: inv.id,
+      startM,
+      sellM,
+      initial: Math.max(0, inv.initialAmount ?? 0),
+      cgPct: Math.max(0, inv.capitalGainsTaxPct ?? 0),
+      salePrice: inv.salePrice,
+    };
+  });
+
+  const nInv = investmentList.length;
+  const invBalances = new Array<number>(nInv).fill(0);
+  const invBasis    = new Array<number>(nInv).fill(0);
+  const invSold     = new Array<boolean>(nInv).fill(false);
   const invRMonthly = investmentList.map(i => Math.max(0, i.annualReturnPct ?? 0) / 100 / 12);
   const invContrib  = investmentList.map(i => Math.max(0, i.monthlyContribution ?? 0));
-  const investmentInitialSum = invBalances.reduce((a, b) => a + b, 0);
+
+  for (let i = 0; i < nInv; i++) {
+    if (invMeta[i].startM <= 0) {
+      invBalances[i] = invMeta[i].initial;
+      invBasis[i]    = invMeta[i].initial;
+    }
+  }
+
+  const investmentInitialSum = invMeta.reduce((s, meta) => s + (meta.startM <= 0 ? meta.initial : 0), 0);
 
   let prevNWForChange = preStartNetWorthFloat(
     startSavings, investmentInitialSum, purchaseMeta, debts, safeStartYear, safeStartMonthIdx,
@@ -243,7 +283,14 @@ export function simulate(
     if (downThisMonth > 0) savings -= downThisMonth;
 
     const allowance = monthlyAllowance ?? 0;
-    const invContribSum = invContrib.reduce((a, b) => a + b, 0);
+    let invContribSum = 0;
+    for (let i = 0; i < nInv; i++) {
+      if (invSold[i]) continue;
+      const { startM, sellM } = invMeta[i];
+      if (m < startM) continue;
+      if (m > sellM) continue;
+      invContribSum += invContrib[i];
+    }
     // Housing + allowance + itemized recurring come out of envelope; house offsets rent via rentRelief.
     const effectiveEnv  = envelope + raiseBonus - housingCost - allowance - recurringTotal + rentRelief;
     const savingsInflow = effectiveEnv - debtBurden - purchaseOutflow - invContribSum;
@@ -254,9 +301,48 @@ export function simulate(
         : savings + savingsInflow;
 
     let investmentBalance = 0;
-    for (let i = 0; i < invBalances.length; i++) {
-      invBalances[i] = invBalances[i] * (1 + invRMonthly[i]) + invContrib[i];
-      investmentBalance += invBalances[i];
+    const investmentBalancesById: Record<string, number> = {};
+
+    for (let i = 0; i < nInv; i++) {
+      const meta = invMeta[i];
+      const id   = meta.id;
+
+      if (invSold[i]) {
+        investmentBalancesById[id] = 0;
+        continue;
+      }
+      if (m < meta.startM) {
+        invBalances[i] = 0;
+        investmentBalancesById[id] = 0;
+        continue;
+      }
+
+      let bal = invBalances[i];
+      if (m === meta.startM && meta.startM > 0) {
+        bal += meta.initial;
+        invBasis[i] += meta.initial;
+      }
+
+      const c = invContrib[i];
+      bal = bal * (1 + invRMonthly[i]) + c;
+      invBasis[i] += c;
+
+      if (Number.isFinite(meta.sellM) && m === meta.sellM) {
+        const modeledBal = bal;
+        const proceeds = meta.salePrice != null && Number.isFinite(meta.salePrice)
+          ? Math.max(0, meta.salePrice)
+          : modeledBal;
+        const gain = Math.max(0, proceeds - invBasis[i]);
+        const tax  = gain * meta.cgPct / 100;
+        savings += proceeds - tax;
+        bal = 0;
+        invBasis[i] = 0;
+        invSold[i] = true;
+      }
+
+      invBalances[i] = bal;
+      investmentBalance += bal;
+      investmentBalancesById[id] = Math.round(bal);
     }
 
     let debtOutstanding = 0;
@@ -335,6 +421,7 @@ export function simulate(
       activePurchases,
       netWorth,
       netWorthChange,
+      investmentBalancesById: { ...investmentBalancesById },
     });
   }
 
