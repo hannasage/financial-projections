@@ -99,6 +99,12 @@ export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props)
     ? Math.max(0, Math.min(11, Number(library.profile.startMonthIdx)))
     : new Date().getMonth();
 
+  // Stable fingerprints for useMemo deps. Hoisted out so each dep array stays a list of
+  // simple expressions, which keeps the `react-hooks/use-memo` rule happy and the cache
+  // logic readable.
+  const activePlansUpdatedSig = activePlans.map(p => p.id + p.updated).join(',');
+  const activePlansTitleSig   = activePlans.map(p => p.id + p.title).join(',');
+
   const simulations = useMemo(() => {
     const map: Record<string, ReturnType<typeof simulate>> = {};
     for (const plan of activePlans) {
@@ -108,7 +114,7 @@ export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props)
     }
     return map;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePlans.map(p => p.id + p.updated).join(','), library]);
+  }, [activePlansUpdatedSig, library]);
 
   const maxHorizon = Math.max(0, ...activePlans.map(p => mergeIntoScenario(p.scenario, library).horizonYears));
   const clipped    = clipYears != null ? Math.min(clipYears, maxHorizon) : maxHorizon;
@@ -130,7 +136,7 @@ export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props)
     for (const plan of activePlans) map[plan.title || plan.id] = plan;
     return map;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePlans.map(p => p.id + p.title).join(',')]);
+  }, [activePlansTitleSig]);
 
   /** Resolved markers (library + plan-custom − excluded) per plan, computed once per render. */
   const markersByPlanId: Record<string, Marker[]> = useMemo(() => {
@@ -140,7 +146,7 @@ export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props)
     }
     return map;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePlans.map(p => p.id + p.updated).join(','), library.markers]);
+  }, [activePlansUpdatedSig, library.markers]);
 
   const chartData = useMemo(() => {
     if (activePlans.length === 0) return [];

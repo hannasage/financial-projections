@@ -1,5 +1,5 @@
 import type {
-  Debt, DebtAdjustment, Purchase, Raise, Investment, RecurringCharge, Scenario, Plan, InvestmentContributionAdjustment,
+  Debt, DebtAdjustment, Purchase, Raise, Investment, RecurringCharge, Scenario, Plan, InvestmentContributionAdjustment, InvestmentAdjustmentRecurrence,
   Marker, MarkerColorKey,
 } from './types';
 import { MARKER_COLOR_KEYS } from './types';
@@ -111,17 +111,50 @@ export function sanitizeInvestment(raw: unknown): Investment | null {
     const adj = r.adjustments.map((a, idx): InvestmentContributionAdjustment | null => {
       if (!a || typeof a !== 'object') return null;
       const x = a as Record<string, unknown>;
-      const monthlyContribution = x.monthlyContribution != null
+      const monthlyContribution = x.monthlyContribution != null && Number.isFinite(Number(x.monthlyContribution))
         ? clampFinite(x.monthlyContribution, 0, 1e9)
         : undefined;
-      const lumpSum = x.lumpSum != null ? clampFinite(x.lumpSum, 0, 1e12) : undefined;
-      if (monthlyContribution == null && lumpSum == null) return null;
+      // Signed delta — clamp to a wide bipolar range so users can subtract aggressively.
+      const monthlyContributionDelta = x.monthlyContributionDelta != null && Number.isFinite(Number(x.monthlyContributionDelta))
+        ? clampFinite(x.monthlyContributionDelta, -1e9, 1e9)
+        : undefined;
+      const lumpSum = x.lumpSum != null && Number.isFinite(Number(x.lumpSum))
+        ? clampFinite(x.lumpSum, 0, 1e12)
+        : undefined;
+
+      let recurrence: InvestmentAdjustmentRecurrence | undefined;
+      if (x.recurrence && typeof x.recurrence === 'object') {
+        const rec = x.recurrence as Record<string, unknown>;
+        const everyMonthsRaw = Number(rec.everyMonths);
+        if (Number.isFinite(everyMonthsRaw) && everyMonthsRaw >= 1) {
+          // Cap to 240 months (20yr) to avoid weird inputs; floor to integer.
+          const everyMonths = Math.min(240, Math.max(1, Math.floor(everyMonthsRaw)));
+          const hasEnd = rec.untilYear != null && rec.untilMonthIdx != null
+            && Number.isFinite(Number(rec.untilYear)) && Number.isFinite(Number(rec.untilMonthIdx));
+          recurrence = {
+            everyMonths,
+            ...(hasEnd
+              ? {
+                  untilYear: clampInt(rec.untilYear, 1970, 2200),
+                  untilMonthIdx: clampInt(rec.untilMonthIdx, 0, 11),
+                }
+              : {}),
+          };
+        }
+      }
+
+      const hasAnyEffect = monthlyContribution != null
+        || (monthlyContributionDelta != null && monthlyContributionDelta !== 0)
+        || (lumpSum != null && lumpSum > 0);
+      if (!hasAnyEffect) return null;
       return {
         id: typeof x.id === 'string' ? x.id : `inv-adj-${id}-${idx}`,
         monthIdx: clampInt(x.monthIdx, 0, 11),
         year: clampFinite(x.year, 1970, 2200, new Date().getFullYear()),
-        monthlyContribution,
-        lumpSum,
+        ...(monthlyContribution != null ? { monthlyContribution } : {}),
+        ...(monthlyContributionDelta != null ? { monthlyContributionDelta } : {}),
+        ...(lumpSum != null ? { lumpSum } : {}),
+        ...(recurrence ? { recurrence } : {}),
       };
     }).filter((x): x is InvestmentContributionAdjustment => x != null);
     if (adj.length > 0) inv.adjustments = adj;

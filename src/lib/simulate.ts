@@ -1,4 +1,4 @@
-import type { Scenario, SimRow, Debt, Investment } from './types';
+import type { Scenario, SimRow, Debt, Investment, InvestmentContributionAdjustment } from './types';
 import { absMo, netMonthly, payoffMonths, stdPayment, remainingBalance } from './finance';
 import { getTodayStartDate } from './constants';
 import { runSimulationInvariantChecks } from './simulateInvariants';
@@ -12,6 +12,35 @@ function effectivePayment(d: Debt, m: number, startYear: number, startMonthIdx: 
   return payment;
 }
 
+/**
+ * All occurrence months ≤ {@link maxM} for an adjustment. Single-shot adjustments yield one
+ * value (their `year`/`monthIdx`); recurring adjustments yield `first, first+everyMonths, …`
+ * up to {@link maxM} or the optional `untilYear`/`untilMonthIdx` end.
+ *
+ * Implemented as a plain array so the result can be reused without re-iterating.
+ */
+function adjustmentOccurrences(
+  a: InvestmentContributionAdjustment,
+  startYear: number,
+  startMonthIdx: number,
+  maxM: number,
+): number[] {
+  const first = absMo(a.year, a.monthIdx, startYear, startMonthIdx);
+  if (first > maxM) return [];
+  if (!a.recurrence) return first < 0 ? [] : [first];
+  const step = Math.max(1, Math.floor(a.recurrence.everyMonths));
+  const endM = a.recurrence.untilYear != null && a.recurrence.untilMonthIdx != null
+    ? absMo(a.recurrence.untilYear, a.recurrence.untilMonthIdx, startYear, startMonthIdx)
+    : maxM;
+  const upper = Math.min(maxM, endM);
+  if (first > upper) return [];
+  const out: number[] = [];
+  for (let w = first; w <= upper; w += step) {
+    if (w >= 0) out.push(w);
+  }
+  return out;
+}
+
 function effectiveInvestmentMonthlyContribution(
   inv: Investment,
   m: number,
@@ -20,9 +49,24 @@ function effectiveInvestmentMonthlyContribution(
 ): number {
   let contrib = Math.max(0, inv.monthlyContribution ?? 0);
   if (!inv.adjustments?.length) return contrib;
+  // Build an event timeline of all adjustment occurrences ≤ m, in chronological order.
+  // - `monthlyContribution` (legacy absolute) resets the running contribution.
+  // - `monthlyContributionDelta` (signed) adds to it. Either field can be paired with recurrence
+  //   so deltas can simulate gradual increases (+50/yr) and absolutes can simulate stepwise resets.
+  const events: Array<{ at: number; adj: InvestmentContributionAdjustment }> = [];
   for (const a of inv.adjustments) {
-    const when = absMo(a.year, a.monthIdx, startYear, startMonthIdx);
-    if (m >= when && a.monthlyContribution != null) contrib = Math.max(0, a.monthlyContribution);
+    for (const at of adjustmentOccurrences(a, startYear, startMonthIdx, m)) {
+      events.push({ at, adj: a });
+    }
+  }
+  events.sort((x, y) => x.at - y.at);
+  for (const { adj } of events) {
+    if (adj.monthlyContribution != null) {
+      contrib = Math.max(0, adj.monthlyContribution);
+    }
+    if (adj.monthlyContributionDelta != null) {
+      contrib = Math.max(0, contrib + adj.monthlyContributionDelta);
+    }
   }
   return contrib;
 }
@@ -37,8 +81,9 @@ function investmentLumpSumAtMonth(
   let lump = 0;
   for (const a of inv.adjustments) {
     if (a.lumpSum == null || a.lumpSum <= 0) continue;
-    const when = absMo(a.year, a.monthIdx, startYear, startMonthIdx);
-    if (when === m) lump += a.lumpSum;
+    for (const at of adjustmentOccurrences(a, startYear, startMonthIdx, m)) {
+      if (at === m) lump += a.lumpSum;
+    }
   }
   return lump;
 }

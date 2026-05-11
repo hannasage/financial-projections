@@ -100,10 +100,32 @@ export interface InvestmentContributionAdjustment {
   id:                  string;
   monthIdx:            number;
   year:                number;
-  /** New monthly add from this month onward (if provided). */
+  /**
+   * LEGACY: absolute monthly contribution set from this month onward. Prefer
+   * `monthlyContributionDelta` for new adjustments — this field is retained so
+   * existing plan data keeps simulating correctly.
+   */
   monthlyContribution?: number;
-  /** One-time add in this exact month. */
+  /**
+   * Signed delta added to the prevailing monthly contribution from this month onward.
+   * e.g. +50 means "bump contributions by $50/mo". When recurring, the delta is
+   * re-applied at each occurrence so a "+50 every January" walks contributions up
+   * gradually over time.
+   */
+  monthlyContributionDelta?: number;
+  /** One-time add in this exact month (or per-occurrence when {@link recurrence} is set). */
   lumpSum?:            number;
+  /** Optional repetition. Omit for a one-time adjustment. */
+  recurrence?:         InvestmentAdjustmentRecurrence;
+}
+
+/** Defines how an {@link InvestmentContributionAdjustment} repeats over time. */
+export interface InvestmentAdjustmentRecurrence {
+  /** Months between occurrences (1 = monthly, 3 = quarterly, 12 = annually, etc.). */
+  everyMonths:   number;
+  /** Optional inclusive end month — omit to repeat through the projection horizon. */
+  untilYear?:    number;
+  untilMonthIdx?: number;
 }
 
 export interface RecurringCharge {
