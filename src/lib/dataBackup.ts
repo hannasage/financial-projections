@@ -1,7 +1,22 @@
-import type { Plan, Debt, Purchase, Raise, Investment, RecurringCharge } from './types';
+import type {
+  Plan,
+  Debt,
+  Purchase,
+  Raise,
+  Investment,
+  RecurringCharge,
+} from './types';
 import { LOCAL_MODE } from './mode';
 import { useLibraryStore, normalizeProfile, type Profile } from '../stores/libraryStore';
 import { usePlansStore } from '../stores/plansStore';
+import {
+  sanitizeDebtArray,
+  sanitizePurchaseArray,
+  sanitizeRaiseArray,
+  sanitizeInvestmentArray,
+  sanitizeRecurringChargeArray,
+  sanitizePlan,
+} from './sanitizeFinanceData';
 
 export const BACKUP_FORMAT = 'projection-backup' as const;
 export const BACKUP_VERSION = 1;
@@ -33,12 +48,7 @@ function isRecord(x: unknown): x is Record<string, unknown> {
 
 function coercePlans(x: unknown): Plan[] {
   if (!Array.isArray(x)) return [];
-  return x.filter((p): p is Plan =>
-    isRecord(p)
-    && typeof p.id === 'string'
-    && typeof p.title === 'string'
-    && isRecord(p.scenario),
-  );
+  return x.map(sanitizePlan).filter((p): p is Plan => p != null);
 }
 
 function coerceStringArray(x: unknown): string[] {
@@ -103,11 +113,11 @@ export function parseBackupJson(text: string): ProjectionBackupV1 | null {
     exportedAt: typeof data.exportedAt === 'string' ? data.exportedAt : '',
     library: {
       profile:          normalizeProfile(isRecord(profile) ? (profile as Partial<Profile>) : null),
-      debts:            Array.isArray(lib.debts) ? (lib.debts as Debt[]) : [],
-      purchases:        Array.isArray(lib.purchases) ? (lib.purchases as Purchase[]) : [],
-      raises:           Array.isArray(lib.raises) ? (lib.raises as Raise[]) : [],
-      investments:      Array.isArray(lib.investments) ? (lib.investments as Investment[]) : [],
-      recurringCharges: Array.isArray(lib.recurringCharges) ? (lib.recurringCharges as RecurringCharge[]) : [],
+      debts:            sanitizeDebtArray(lib.debts),
+      purchases:        sanitizePurchaseArray(lib.purchases),
+      raises:           sanitizeRaiseArray(lib.raises),
+      investments:      sanitizeInvestmentArray(lib.investments),
+      recurringCharges: sanitizeRecurringChargeArray(lib.recurringCharges),
     },
     plans:      coercePlans(data.plans),
     planOrder:  coerceStringArray(data.planOrder),
@@ -126,11 +136,11 @@ export function applyBackup(payload: ProjectionBackupV1): ApplyBackupResult {
     const { library: L } = payload;
     useLibraryStore.setState({
       profile:          normalizeProfile(L.profile),
-      debts:            L.debts ?? [],
-      purchases:        L.purchases ?? [],
-      raises:           L.raises ?? [],
-      investments:      L.investments ?? [],
-      recurringCharges: L.recurringCharges ?? [],
+      debts:            sanitizeDebtArray(L.debts),
+      purchases:        sanitizePurchaseArray(L.purchases),
+      raises:           sanitizeRaiseArray(L.raises),
+      investments:      sanitizeInvestmentArray(L.investments),
+      recurringCharges: sanitizeRecurringChargeArray(L.recurringCharges),
     });
 
     if (!LOCAL_MODE) {
@@ -141,7 +151,7 @@ export function applyBackup(payload: ProjectionBackupV1): ApplyBackupResult {
       };
     }
 
-    const plans = payload.plans ?? [];
+    const plans = (payload.plans ?? []).map(sanitizePlan).filter((p): p is Plan => p != null);
     localStorage.setItem(LOCAL_PLANS_KEY, JSON.stringify(plans));
     usePlansStore.getState().importSnapshot(plans, payload.planOrder ?? [], payload.planActive ?? []);
 

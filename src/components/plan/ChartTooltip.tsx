@@ -78,7 +78,7 @@ export function ChartTooltip({ active, payload, variant = 'savings' }: Props) {
             )}
             {d.raiseBonus      > 0 && <div style={{ color: COLORS.accent }}>+ raise: {money(d.raiseBonus)}/mo</div>}
             {d.rentRelief      > 0 && <div style={{ color: COLORS.blue   }}>+ rent freed: {money(d.rentRelief)}/mo</div>}
-            <div style={{ color: COLORS.dim }}>→ to cash {money(d.liquidInflow)}/mo</div>
+            <div style={{ color: COLORS.dim }}>Δ cash this month: {money(d.liquidInflow)}/mo</div>
           </div>
         </>
       )}

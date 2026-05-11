@@ -203,7 +203,7 @@ export function InvestmentItem({ i, onChange, onRemove, planStartYear, planStart
       </div>
 
       <p style={{ fontSize: 10, color: COLORS.muted, marginTop: 10, lineHeight: 1.45 }}>
-        Grows at your rate monthly; contributions are paid from the envelope after debts and purchase loans (same as savings). Balances count toward net worth, not liquidity until sold (sale proceeds go to cash).
+        Starting balance is funded from liquid savings once, in the start month (same as moving cash into the account). Monthly adds come from the envelope after debts and purchase loans. Invested balances count toward net worth, not liquidity until sold (sale proceeds go to cash).
       </p>
     </div>
   );

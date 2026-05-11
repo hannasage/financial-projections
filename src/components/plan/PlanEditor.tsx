@@ -483,6 +483,9 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
               <button onClick={() => setCascadeDebts(v => !v)} aria-pressed={cascadeDebts} style={chipStyle(cascadeDebts)}>
                 {cascadeDebts ? '⛓ cascade on' : '⛓ cascade freed payments'}
               </button>
+              <p style={{ fontSize: 10, color: COLORS.muted, marginTop: 8, lineHeight: 1.55, maxWidth: 560 }}>
+                Cascade rolls freed payments from paid-off debts into the next remaining debt in <strong style={{ color: COLORS.text }}>list order</strong> here (first eligible balance-tracked debt gets pooled extras); leftover envelope still flows to savings when debts finish.
+              </p>
             </div>
           )}
           {debts.map(d => (
@@ -710,6 +713,9 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
         {/* ── MILESTONES ── */}
         <section className="sec" aria-label="Cash savings milestones">
           <h2 style={{ ...S.label, marginBottom: 12 }}>Milestones</h2>
+          <p style={{ fontSize: 10, color: COLORS.dim, marginBottom: 8, lineHeight: 1.55 }}>
+            Charts reflect simplified timing and taxes—directionally useful, not exact balances at closing dates.
+          </p>
           <p style={{ fontSize: 10, color: COLORS.muted, marginBottom: 10 }}>Cash on hand only. Investment balances count toward net worth, not liquidity.</p>
           <div className="mg">
             {milestones.map(s => (
@@ -971,7 +977,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
                     ['Year',      'Calendar year'],
                     ['Savings',   'Cash / HYSA balance'],
                     ['Invest',    'Investment account balances'],
-                    ['To cash', 'Net monthly change to cash savings after debts, loans, and investment contributions'],
+                    ['To cash', 'Net change in cash this month (includes yield, one-time investment funding, sale proceeds, etc.)'],
                     ['Debt −',    'Monthly debt payments'],
                     ['Loans −',   'Monthly loan payments'],
                     ['Active',    'Active purchase loans'],

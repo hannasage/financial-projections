@@ -115,7 +115,7 @@ export function ComparisonTable({ plans, activePlanIds, clipYears, tab }: Props)
                   <th
                     scope="col"
                     title={
-                      tab === 'liquidity' ? 'Net monthly change to cash savings (after debts, loans, and buys to investments)'
+                      tab === 'liquidity' ? 'Net change in cash this month (envelope, yield, downs, investment funding, sales, etc.)'
                         : tab === 'debt' ? 'Debt + loan payments'
                           : tab === 'investments'
                             ? 'Total monthly envelope contributions to all investment buckets'

@@ -5,7 +5,8 @@ import { getTodayStartDate } from '../lib/constants';
 
 export type Profile = Pick<Scenario,
   'startMonthIdx' | 'startYear' | 'envelope' | 'startSavings' | 'startAge' | 'horizonYears' |
-  'returnMode' | 'hysaRate' | 'taxPct' | 'baseSalary' | 'housingCost' | 'monthlyAllowance'
+  'returnMode' | 'hysaRate' | 'taxPct' | 'baseSalary' | 'housingCost' | 'monthlyAllowance' |
+  'inflationPctAnnual'
 >;
 
 const today = getTodayStartDate();
@@ -15,6 +16,7 @@ const DEFAULT_PROFILE: Profile = {
   envelope: 1_000, startSavings: 0, startAge: 30, horizonYears: 10,
   returnMode: 'hysa', hysaRate: 4.5, taxPct: 25,
   baseSalary: 60_000, housingCost: 1_200, monthlyAllowance: 0,
+  inflationPctAnnual: 0,
 };
 
 export function normalizeProfile(input?: Partial<Profile> | null): Profile {
@@ -25,11 +27,16 @@ export function normalizeProfile(input?: Partial<Profile> | null): Profile {
   const normalizedYear = Number.isFinite(Number(from.startYear))
     ? Number(from.startYear)
     : today.startYear;
+  const infRaw = Number(from.inflationPctAnnual);
+  const inflationPctAnnual = Number.isFinite(infRaw)
+    ? Math.min(50, Math.max(0, infRaw))
+    : DEFAULT_PROFILE.inflationPctAnnual ?? 0;
   return {
     ...DEFAULT_PROFILE,
     ...from,
     startMonthIdx: normalizedMonth,
     startYear: normalizedYear,
+    inflationPctAnnual,
   };
 }
 

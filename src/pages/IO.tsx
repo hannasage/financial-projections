@@ -190,8 +190,11 @@ export default function IO() {
           <div style={{ fontSize: 11, color: COLORS.muted, letterSpacing: 3, marginTop: 6 }}>
             input · output
           </div>
-          <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 10, maxWidth: 480, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 10, maxWidth: 520, lineHeight: 1.7 }}>
             Define debts, recurring bills, purchases, investments, and raises once — then include them in any scenario.
+          </p>
+          <p style={{ fontSize: 10, color: COLORS.dim, marginTop: 10, maxWidth: 520, lineHeight: 1.65 }}>
+            Projections are month-by-step estimates in nominal dollars: simplified taxes and yields, no Monte Carlo. Use them as directional guides, not tax or investment advice.
           </p>
         </div>
 
@@ -230,6 +233,24 @@ export default function IO() {
           <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 12, lineHeight: 1.6 }}>
             Monthly allowance is discretionary spending (going out, hobbies, etc.) carved out of your envelope before what’s left flows to savings.
           </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 14 }}>
+            <label htmlFor="io-inflation" style={labelStyle}>Annual envelope growth (% nominal)</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <input
+                id="io-inflation"
+                type="number"
+                min={0}
+                max={50}
+                step={0.5}
+                value={p.inflationPctAnnual ?? 0}
+                onChange={e => sp({ inflationPctAnnual: Math.max(0, Math.min(50, +e.target.value || 0)) })}
+                style={{ ...field, width: 72 }}
+              />
+              <span style={{ fontSize: 11, color: COLORS.muted }}>
+                Each projection year (every 12 months from plan start), bump <strong style={{ color: COLORS.text }}>{money(p.envelope)}/mo</strong>. Use <strong style={{ color: COLORS.text }}>0%</strong> to keep envelope flat.
+              </span>
+            </div>
+          </div>
 
           {/* Numeric grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginTop: 14 }}>

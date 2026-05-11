@@ -18,6 +18,8 @@ export interface Scenario {
   housingCost:  number;
   /** Misc monthly spending drawn from envelope (discretionary allowance, etc.) */
   monthlyAllowance: number;
+  /** Annual nominal envelope growth (each full projection year). Optional; 0 = off. */
+  inflationPctAnnual?: number;
   debts:        Debt[];
   purchases:    Purchase[];
   raises:       Raise[];
@@ -111,7 +113,7 @@ export interface SimRow {
   recurringTotal:  number;
   /** Cash savings balance only (excludes invested balances). */
   liquidTotal:     number;
-  /** Net monthly change to cash savings (excludes $ routed to investment accounts). */
+  /** Net monthly change in cash savings (envelope, yield, purchase downs, one-time investment funding, sale proceeds, etc.). */
   liquidInflow:    number;
   debtBurden:      number;
   /** Estimated total debt still owed (amortized balances + linear est. for payment-only debts) */

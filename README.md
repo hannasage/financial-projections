@@ -1,73 +1,36 @@
-# React + TypeScript + Vite
+# Projection
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Offline-first personal finance scenario planner: compare cash (“liquidity”), debt balances, investments, and net worth across plans without tying projections to a live brokerage feed.
 
-Currently, two official plugins are available:
+## What it does
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **I/O library**: Debts, recurring bills, purchases, investments (optional timing/sells/simplified capital-gains tax), and raises—defined once and reused across scenarios.
+- **Scenarios**: Toggle library entries per plan; optionally cascade freed debt payments (FIFO-style onto the next balance-tracked debt in list order).
+- **Simulation**: Deterministic month-step engine (`simulate`): envelope flows → liabilities → optional nominal envelope inflation once per projection year → cash yield vs separate investment buckets.
 
-## React Compiler
+Outputs are **month-granular, nominal-dollar estimates** with simplified taxes and smooth yields—good for directional decisions, not tax filings or precision budgeting.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Run locally
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build   # typecheck + production bundle
+npm run test    # golden regression checks on the simulator
+npm run lint
 ```
+
+## Tech stack
+
+React + TypeScript + Vite + Zustand, charts via Recharts, optional PocketBase sync plus fully usable **local-only mode**.
+
+## Backup / migration
+
+Export JSON backups from **I/O**; restores sanitize malformed numeric fields so corrupted drafts degrade gracefully instead of crashing the runtime.
+
+## License / advisory
+
+This is educational tooling, not financial advice.

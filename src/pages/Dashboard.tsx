@@ -248,6 +248,9 @@ export default function Dashboard() {
                 setComparisonTab={setComparisonTab}
                 cmpTabBtn={cmpTabBtn}
               />
+              <p style={{ fontSize: 10, color: COLORS.dim, marginBottom: 10, lineHeight: 1.55 }}>
+                Curves and tables are month-step nominal projections—reasonable ranges for planning, not precise forecasts or tax advice.
+              </p>
               <p style={{ fontSize: 10, color: COLORS.muted, marginBottom: 12, lineHeight: 1.5 }}>
                 {comparisonTab === 'liquidity'
                   ? 'Cash savings only (investments are in net worth, not treated as liquid until sold).'
@@ -309,7 +312,7 @@ export default function Dashboard() {
               />
               <p style={{ fontSize: 10, color: COLORS.muted, marginBottom: 12, lineHeight: 1.5 }}>
                 {comparisonTab === 'liquidity'
-                  ? 'Per plan: cash savings balance and net monthly change to cash (/mo).'
+                  ? 'Per plan: cash savings balance and net monthly change to cash (/mo), including one-time investment funding and yield.'
                   : comparisonTab === 'debt'
                     ? 'Per plan: debt + loan balances owed and combined payments (/mo svc).'
                     : comparisonTab === 'investments'

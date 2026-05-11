@@ -1,6 +1,7 @@
 import type { Scenario, SimRow, Debt, Investment } from './types';
 import { absMo, netMonthly, payoffMonths, stdPayment, remainingBalance } from './finance';
 import { getTodayStartDate } from './constants';
+import { runSimulationInvariantChecks } from './simulateInvariants';
 
 function effectivePayment(d: Debt, m: number, startYear: number, startMonthIdx: number): number {
   if (!d.adjustments?.length) return d.payment;
@@ -69,6 +70,8 @@ export function simulate(
   const sortedRaises = [...raises].sort(
     (a, b) => absMo(a.year, a.monthIdx, safeStartYear, safeStartMonthIdx) - absMo(b.year, b.monthIdx, safeStartYear, safeStartMonthIdx),
   );
+  /** Chronologically earliest raise defines baseline salary (array order no longer matters). */
+  const baseSalary = sortedRaises[0]?.baseSalary ?? null;
 
   type PurchaseMetaRow = (typeof purchases)[number] & {
     startM: number;
@@ -120,7 +123,8 @@ export function simulate(
       }))
     : null;
 
-  const baseSalary = raises[0]?.baseSalary ?? null;
+  const inflationPctAnnual = Math.max(0, scenario.inflationPctAnnual ?? 0);
+  let envelopeLive = envelope;
   let savings = startSavings;
   const rows: SimRow[] = [];
 
@@ -174,20 +178,28 @@ export function simulate(
   const invRMonthly = investmentList.map(i => Math.max(0, i.annualReturnPct ?? 0) / 100 / 12);
   const invContrib  = investmentList.map(i => Math.max(0, i.monthlyContribution ?? 0));
 
+  // Investments already held before the plan start (startM < 0): balances exist but no cash movement now.
+  // startM ≥ 0: initial funding is applied in that simulation month and debited from cash (liquidity).
   for (let i = 0; i < nInv; i++) {
-    if (invMeta[i].startM <= 0) {
+    if (invMeta[i].startM < 0) {
       invBalances[i] = invMeta[i].initial;
       invBasis[i]    = invMeta[i].initial;
     }
   }
 
-  const investmentInitialSum = invMeta.reduce((s, meta) => s + (meta.startM <= 0 ? meta.initial : 0), 0);
+  const investmentInitialSum = invMeta.reduce((s, meta) => s + (meta.startM < 0 ? meta.initial : 0), 0);
 
   let prevNWForChange = preStartNetWorthFloat(
     startSavings, investmentInitialSum, purchaseMeta, debts, safeStartYear, safeStartMonthIdx,
   );
 
   for (let m = 0; m <= totalMonths; m++) {
+    const savingsAtMonthStart = savings;
+
+    if (m > 0 && m % 12 === 0 && inflationPctAnnual > 0) {
+      envelopeLive *= 1 + inflationPctAnnual / 100;
+    }
+
     const yr  = safeStartYear + Math.floor((safeStartMonthIdx + m) / 12);
     const calendarMonthIdx = ((safeStartMonthIdx + m) % 12 + 12) % 12;
     const age = startAge + m / 12;
@@ -292,7 +304,7 @@ export function simulate(
       invContribSum += invContrib[i];
     }
     // Housing + allowance + itemized recurring come out of envelope; house offsets rent via rentRelief.
-    const effectiveEnv  = envelope + raiseBonus - housingCost - allowance - recurringTotal + rentRelief;
+    const effectiveEnv  = envelopeLive + raiseBonus - housingCost - allowance - recurringTotal + rentRelief;
     const savingsInflow = effectiveEnv - debtBurden - purchaseOutflow - invContribSum;
 
     savings =
@@ -318,9 +330,10 @@ export function simulate(
       }
 
       let bal = invBalances[i];
-      if (m === meta.startM && meta.startM > 0) {
+      if (m === meta.startM && meta.startM >= 0 && meta.initial > 0) {
         bal += meta.initial;
         invBasis[i] += meta.initial;
+        savings -= meta.initial;
       }
 
       const c = invContrib[i];
@@ -392,7 +405,7 @@ export function simulate(
     }
     // Liquidity = cash on hand (HYSA / checking path only). Investments stay in net worth, not "liquid".
     const liquidTotal   = savings;
-    const liquidInflow  = savingsInflow;
+    const liquidInflow  = savings - savingsAtMonthStart;
     const rawNetWorth    = savings + investmentBalance + purchaseAssetMV - debtOutstanding;
     const netWorth       = Math.round(rawNetWorth);
     const netWorthChange = Math.round(rawNetWorth - prevNWForChange);
@@ -423,6 +436,14 @@ export function simulate(
       netWorthChange,
       investmentBalancesById: { ...investmentBalancesById },
     });
+  }
+
+  if (import.meta.env.DEV) {
+    try {
+      runSimulationInvariantChecks(rows);
+    } catch (e) {
+      console.error('[simulate] invariant check failed:', e);
+    }
   }
 
   return rows;
