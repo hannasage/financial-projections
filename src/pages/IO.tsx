@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useColors } from '../stores/themeStore';
@@ -25,7 +25,6 @@ export default function IO() {
   const COLORS  = useColors();
   const logout  = useAuthStore(s => s.logout);
   const library = useLibraryStore();
-  const backupFileRef = useRef<HTMLInputElement>(null);
   const [backupMsg, setBackupMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   const p = library.profile;
@@ -125,38 +124,43 @@ export default function IO() {
     setBackupMsg({ kind: 'ok', text: 'CSV summary downloaded (for spreadsheets only — import uses JSON).' });
   };
 
-  const handleImportPick = () => backupFileRef.current?.click();
-
   const handleImportFile: React.ChangeEventHandler<HTMLInputElement> = async e => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
+    const input = e.target;
+    const file = input.files?.[0];
     if (!file) return;
 
     const confirmMsg = LOCAL_MODE
       ? 'Replace all I/O data and every saved scenario on this device with this backup? This cannot be undone.'
       : 'Replace all I/O library data on this device? Your scenarios stay tied to your online account. This cannot be undone.';
-    if (!window.confirm(confirmMsg)) return;
+    if (!window.confirm(confirmMsg)) {
+      input.value = '';
+      return;
+    }
 
     let text: string;
     try {
       text = await file.text();
     } catch {
       setBackupMsg({ kind: 'err', text: 'Could not read that file.' });
+      input.value = '';
       return;
     }
 
     const parsed = parseBackupJson(text);
     if (!parsed) {
       setBackupMsg({ kind: 'err', text: 'Not a valid Projection backup (expected a JSON file from Export backup).' });
+      input.value = '';
       return;
     }
 
     const result = applyBackup(parsed);
     if (!result.ok) {
       setBackupMsg({ kind: 'err', text: result.error });
+      input.value = '';
       return;
     }
     setBackupMsg({ kind: 'ok', text: result.detail });
+    input.value = '';
   };
 
   return (
@@ -471,25 +475,41 @@ export default function IO() {
             <button type="button" onClick={handleExportSummaryCsv} style={addBtnStyle}>
               Export summary (CSV)
             </button>
-            <button
-              type="button"
-              onClick={handleImportPick}
+            {/*
+              Mobile Safari blocks programmatic .click() on file inputs with display:none.
+              Full-opacity invisible input over a label (hit target) opens the picker from a real tap.
+            */}
+            <label
               style={{
                 ...addBtnStyle,
+                position: 'relative',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: 40,
                 border: `1px solid ${COLORS.accent}`,
                 color: COLORS.accent,
+                cursor: 'pointer',
+                overflow: 'hidden',
               }}
             >
-              Import backup…
-            </button>
-            <input
-              ref={backupFileRef}
-              type="file"
-              accept="application/json,.json"
-              style={{ display: 'none' }}
-              aria-hidden
-              onChange={handleImportFile}
-            />
+              <span style={{ pointerEvents: 'none' }}>Import backup…</span>
+              <input
+                type="file"
+                accept=".json,application/json,text/json,text/plain"
+                aria-label="Import JSON backup"
+                onChange={handleImportFile}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  opacity: 0,
+                  cursor: 'pointer',
+                  fontSize: 16,
+                }}
+              />
+            </label>
           </div>
           {backupMsg && (
             <div
