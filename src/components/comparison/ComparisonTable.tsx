@@ -95,7 +95,7 @@ export function ComparisonTable({ plans, activePlanIds, clipYears, tab }: Props)
                   <th
                     scope="col"
                     title={
-                      tab === 'liquidity' ? 'Cash savings plus investment balances'
+                      tab === 'liquidity' ? 'Cash savings (excludes invested balances)'
                         : tab === 'debt' ? 'Debts + loans owed'
                           : 'Net worth (savings + market value of purchases − liabilities)'
                     }
@@ -106,7 +106,7 @@ export function ComparisonTable({ plans, activePlanIds, clipYears, tab }: Props)
                   <th
                     scope="col"
                     title={
-                      tab === 'liquidity' ? 'Monthly add to cash + investments (after debts & loans)'
+                      tab === 'liquidity' ? 'Net monthly change to cash savings (after debts, loans, and buys to investments)'
                         : tab === 'debt' ? 'Debt + loan payments'
                           : 'Month-over-month change in net worth'
                     }

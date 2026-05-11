@@ -372,7 +372,7 @@ export default function IO() {
             <button type="button" onClick={handleAddInvestment} style={addBtnStyle}>+ Add account</button>
           </div>
           <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: library.investments.length ? 8 : 0 }}>
-            Separate from starting savings: each bucket has its own starting balance, average annual return, and monthly contribution. Counts toward liquid assets and net worth on charts.
+            Separate from starting savings: each bucket has its own starting balance, average annual return, and monthly contribution. Counts toward net worth (and the plan year table’s Invest column), not toward liquidity / cash charts.
           </p>
           {library.investments.length === 0 && (
             <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 8, fontStyle: 'italic' }}>

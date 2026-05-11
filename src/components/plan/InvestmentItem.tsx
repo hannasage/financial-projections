@@ -76,7 +76,7 @@ export function InvestmentItem({ i, onChange, onRemove }: Props) {
         </div>
       </div>
       <p style={{ fontSize: 10, color: COLORS.muted, marginTop: 10, lineHeight: 1.45 }}>
-        Grows at your rate monthly; contributions are paid from the envelope after debts and purchase loans (same as savings).
+        Grows at your rate monthly; contributions are paid from the envelope after debts and purchase loans (same as savings). Balances count toward net worth, not the liquidity / cash charts.
       </p>
     </div>
   );

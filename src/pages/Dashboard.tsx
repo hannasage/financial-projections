@@ -219,7 +219,7 @@ export default function Dashboard() {
               </div>
               <p style={{ fontSize: 10, color: COLORS.muted, marginBottom: 12, lineHeight: 1.5 }}>
                 {comparisonTab === 'liquidity'
-                  ? 'Cash savings plus investment accounts over time (matches year table).'
+                  ? 'Cash savings only (investments are in net worth, not treated as liquid until sold).'
                   : comparisonTab === 'debt'
                     ? 'Debt and loan balances owed over time (matches year table balances).'
                     : 'Net worth: savings plus market value on purchases (when set) minus all debts and loan balances. Purchases without market value count as debt only.'}
@@ -270,7 +270,7 @@ export default function Dashboard() {
               </h2>
               <p style={{ fontSize: 10, color: COLORS.muted, marginBottom: 12, lineHeight: 1.5 }}>
                 {comparisonTab === 'liquidity'
-                  ? 'Per plan: liquid total (cash + investments) and monthly add to liquid (/mo).'
+                  ? 'Per plan: cash savings balance and net monthly change to cash (/mo).'
                   : comparisonTab === 'debt'
                     ? 'Per plan: debt + loan balances owed and combined payments (/mo svc).'
                     : 'Per plan: net worth at year-end checkpoint and that month’s change (/mo Δ).'}

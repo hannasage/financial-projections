@@ -141,6 +141,10 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
     () => [...library.recurringCharges.filter(c => !excludedRecurringChargeIds.includes(c.id)), ...recurringCharges],
     [library.recurringCharges, excludedRecurringChargeIds, recurringCharges],
   );
+  const resolvedRaises = useMemo(
+    () => [...library.raises.filter(r => !excludedRaiseIds.includes(r.id)), ...raises],
+    [library.raises, excludedRaiseIds, raises],
+  );
 
   const addDebt    = () => setDebts(d => [...d, { id: makeId(), label: '', payment: 200, payoffMonthIdx: safeStartMonthIdx, payoffYear: safeStartYear + 1 }]);
   const changeDebt = useCallback((id: string, patch: Partial<Debt>) => setDebts(d => d.map(x => x.id === id ? { ...x, ...patch } : x)), []);
@@ -216,6 +220,39 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
   const nowInvContrib = resolvedInvestments.reduce((s, i) => s + Math.max(0, i.monthlyContribution), 0);
   const effectiveNow = mergedScenario.envelope - mergedScenario.housingCost - allowance - nowRecurring - nowDebtBurden - nowLoanBurden - nowInvContrib;
 
+  const scenarioOverviewChips = useMemo(() => {
+    const chips: { key: string; label: string }[] = [];
+    const nd = resolvedDebts.length;
+    if (nd) chips.push({ key: 'debts', label: `${nd} active debt${nd === 1 ? '' : 's'}` });
+    const nr = resolvedRecurringCharges.length;
+    if (nr) chips.push({ key: 'rec', label: `${nr} recurring` });
+    const np = resolvedPurchases.length;
+    if (np) chips.push({ key: 'pur', label: `${np} major purchase${np === 1 ? '' : 's'}` });
+    const ni = resolvedInvestments.length;
+    if (ni) chips.push({ key: 'inv', label: `${ni} investment bucket${ni === 1 ? '' : 's'}` });
+    const nz = resolvedRaises.length;
+    if (nz) chips.push({ key: 'raise', label: `${nz} raise scenario${nz === 1 ? '' : 's'}` });
+    return chips;
+  }, [resolvedDebts, resolvedRecurringCharges, resolvedPurchases, resolvedInvestments, resolvedRaises]);
+
+  const liquidityYieldSummary = useMemo(() => {
+    if (mergedScenario.returnMode === 'none') return 'Liquidity yield: none (cash only)';
+    if (mergedScenario.returnMode === 'hysa') return `Liquidity yield: ${mergedScenario.hysaRate ?? 4.5}% HYSA`;
+    return 'Liquidity yield: 7% (invested cash mode)';
+  }, [mergedScenario.returnMode, mergedScenario.hysaRate]);
+
+  const envelopeDeductions = useMemo(() => {
+    const rows: { key: string; label: string; amount: number; color: string }[] = [
+      { key: 'housing', label: 'Housing', amount: mergedScenario.housingCost, color: COLORS.muted },
+      { key: 'allow', label: 'Allowance', amount: allowance, color: COLORS.muted },
+      { key: 'rec', label: 'Recurring bills', amount: nowRecurring, color: COLORS.muted },
+      { key: 'debt', label: 'Debt payments', amount: nowDebtBurden, color: COLORS.red },
+      { key: 'loan', label: 'Purchase loans', amount: nowLoanBurden, color: COLORS.orange },
+      { key: 'inv', label: 'Investment contributions', amount: nowInvContrib, color: accent },
+    ];
+    return rows.filter(r => r.amount > 0);
+  }, [mergedScenario.housingCost, allowance, nowRecurring, nowDebtBurden, nowLoanBurden, nowInvContrib, COLORS.muted, COLORS.red, COLORS.orange, accent]);
+
   const purchaseMarkers = resolvedPurchases
     .filter(p => p.loanAmount > 0 && p.payment > 0)
     .map(p => {
@@ -240,25 +277,135 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
     <div style={{ '--plan-accent': accent, background: COLORS.bg, minHeight: '100vh', color: COLORS.text, fontFamily: "'IBM Plex Mono', monospace" } as React.CSSProperties}>
       <div style={{ maxWidth: 780, margin: '0 auto', paddingBottom: 80 }}>
 
-        <section className="sec" aria-label="Global settings note">
-          <h2 style={{ ...S.label, marginBottom: 8 }}>Global Settings</h2>
-          <div style={{ border: `1px solid ${COLORS.border}`, borderRadius: 6, background: COLORS.surface, padding: '10px 13px', fontSize: 11, lineHeight: 2 }}>
-            <div style={{ color: COLORS.muted }}>
-              Core settings are now universal and configured in <a href="/io" style={{ color: COLORS.accent, textDecoration: 'none' }}>I/O</a>.
+        <section className="sec" aria-label="Global settings summary">
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+            <div style={{ minWidth: 0, flex: '1 1 220px' }}>
+              <h2 style={{ ...S.label, marginBottom: 6 }}>Global settings</h2>
+              <p style={{ fontSize: 11, color: COLORS.muted, margin: 0, lineHeight: 1.5, maxWidth: 420 }}>
+                Snapshot of your I/O profile for this plan. Edit core inputs in I/O; below, toggle which library items apply to this scenario.
+              </p>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0 12px' }}>
-              <span>Start: <strong>{MONTHS[mergedScenario.startMonthIdx]} {mergedScenario.startYear}</strong></span>
-              <span>Envelope: <strong>{money(mergedScenario.envelope)}/mo</strong></span>
-              <span style={{ color: COLORS.muted }}>− housing: {money(mergedScenario.housingCost)}/mo</span>
-              {allowance > 0 && (
-                <span style={{ color: COLORS.muted }}>− allowance: {money(allowance)}/mo</span>
+            <a
+              href="/io"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                flexShrink: 0, padding: '8px 14px', borderRadius: 6,
+                fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' as const,
+                textDecoration: 'none', color: COLORS.textOnAccent, background: accent,
+                border: `1px solid ${accent}`, fontFamily: "'IBM Plex Mono', monospace",
+              }}
+            >
+              Edit in I/O
+            </a>
+          </div>
+
+          <div style={{
+            borderRadius: 10,
+            border: `1px solid ${COLORS.border}`,
+            borderLeft: `4px solid ${accent}`,
+            background: COLORS.surface,
+            overflow: 'hidden',
+            boxShadow: `0 12px 40px ${COLORS.bg}88`,
+          }}>
+            <div style={{ padding: '10px 12px 12px', borderBottom: `1px solid ${COLORS.border}`, background: COLORS.faint }}>
+              <div style={{ ...S.label, marginBottom: 6, fontSize: 9, letterSpacing: 1.5 }}>Start, envelope & horizon</div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(112px, 1fr))',
+                gap: 6,
+              }}>
+                {[
+                  { k: 'start', cap: 'Plan start', val: `${MONTHS[mergedScenario.startMonthIdx]} ${mergedScenario.startYear}` },
+                  { k: 'env', cap: 'Monthly envelope', val: `${money(mergedScenario.envelope)}/mo` },
+                  { k: 'hor', cap: 'Horizon', val: `${mergedScenario.horizonYears} yr` },
+                ].map(({ k, cap, val }) => (
+                  <div
+                    key={k}
+                    style={{
+                      padding: '7px 9px',
+                      borderRadius: 6,
+                      background: COLORS.surface,
+                      border: `1px solid ${COLORS.border}`,
+                    }}
+                  >
+                    <div style={{ fontSize: 8, letterSpacing: 1.2, color: COLORS.muted, textTransform: 'uppercase' as const, marginBottom: 4 }}>{cap}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.text, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>{val}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ padding: '14px 16px 16px' }}>
+              <div style={{ ...S.label, marginBottom: 10 }}>Profile & month-one envelope</div>
+              <p style={{ fontSize: 10, color: COLORS.muted, margin: '0 0 12px', lineHeight: 1.65 }}>
+                Starting cash{' '}
+                <strong style={{ color: COLORS.text }}>{money(mergedScenario.startSavings)}</strong>
+                {' · '}Age <strong style={{ color: COLORS.text }}>{mergedScenario.startAge}</strong>
+                {' · '}Salary <strong style={{ color: COLORS.text }}>{money(mergedScenario.baseSalary)}/yr</strong>
+                {' · '}Tax <strong style={{ color: COLORS.text }}>{mergedScenario.taxPct}%</strong>
+                <br />
+                <span style={{ color: COLORS.text, opacity: 0.92 }}>{liquidityYieldSummary}</span>
+              </p>
+
+              <div style={{ fontSize: 11, color: COLORS.text, fontVariantNumeric: 'tabular-nums' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '6px 0', borderBottom: `1px solid ${COLORS.border}` }}>
+                  <span style={{ color: COLORS.muted }}>Envelope (in)</span>
+                  <span style={{ fontWeight: 700 }}>{money(mergedScenario.envelope)}</span>
+                </div>
+                {envelopeDeductions.map(r => (
+                  <div
+                    key={r.key}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '6px 0', borderBottom: `1px solid ${COLORS.border}` }}
+                  >
+                    <span style={{ color: r.color }}>− {r.label}</span>
+                    <span style={{ color: r.color, fontWeight: 600 }}>{money(r.amount)}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{
+                marginTop: 12,
+                padding: '12px 14px',
+                borderRadius: 8,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 12,
+                flexWrap: 'wrap',
+                background: effectiveNow < 0 ? `${COLORS.red}12` : `${accent}10`,
+                border: `1px solid ${effectiveNow < 0 ? `${COLORS.red}45` : `${accent}38`}`,
+              }}>
+                <div>
+                  <div style={{ fontSize: 10, letterSpacing: 1.2, color: COLORS.muted, textTransform: 'uppercase' as const, marginBottom: 4 }}>To liquidity (cash savings)</div>
+                  <div style={{ fontSize: 11, color: COLORS.muted, lineHeight: 1.4 }}>After obligations in the first simulated month</div>
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: effectiveNow < 0 ? COLORS.red : accent, fontVariantNumeric: 'tabular-nums' }}>
+                  {money(effectiveNow)}<span style={{ fontSize: 12, fontWeight: 600, opacity: 0.85 }}>/mo</span>
+                </div>
+              </div>
+
+              {scenarioOverviewChips.length > 0 && (
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${COLORS.border}` }}>
+                  <div style={{ ...S.label, marginBottom: 8 }}>In this scenario</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {scenarioOverviewChips.map(c => (
+                      <span
+                        key={c.key}
+                        style={{
+                          fontSize: 10,
+                          padding: '5px 11px',
+                          borderRadius: 999,
+                          border: `1px solid ${COLORS.border}`,
+                          background: COLORS.faint,
+                          color: COLORS.text,
+                        }}
+                      >
+                        {c.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               )}
-              <span>Horizon: <strong>{mergedScenario.horizonYears}y</strong></span>
-              {nowRecurring > 0 && <span style={{ color: COLORS.muted }}>− recurring: {money(nowRecurring)}/mo</span>}
-              {nowDebtBurden > 0 && <span style={{ color: COLORS.red }}>− debt: {money(nowDebtBurden)}/mo</span>}
-              {nowLoanBurden > 0 && <span style={{ color: COLORS.orange }}>− loans: {money(nowLoanBurden)}/mo</span>}
-              {nowInvContrib > 0 && <span style={{ color: COLORS.accent }}>− invest: {money(nowInvContrib)}/mo</span>}
-              <span style={{ color: accent }}>→ {money(effectiveNow)}/mo to savings now</span>
             </div>
           </div>
         </section>
@@ -532,9 +679,9 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
         </section>
 
         {/* ── MILESTONES ── */}
-        <section className="sec" aria-label="Liquid asset milestones">
+        <section className="sec" aria-label="Cash savings milestones">
           <h2 style={{ ...S.label, marginBottom: 12 }}>Milestones</h2>
-          <p style={{ fontSize: 10, color: COLORS.muted, marginBottom: 10 }}>Cash savings plus tracked investment balances.</p>
+          <p style={{ fontSize: 10, color: COLORS.muted, marginBottom: 10 }}>Cash on hand only. Investment balances count toward net worth, not liquidity.</p>
           <div className="mg">
             {milestones.map(s => (
               <div key={s.m} style={{
@@ -559,9 +706,9 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
         </section>
 
         {/* ── CHART ── */}
-        <section className="sec" aria-label="Liquid assets trajectory chart">
-          <h2 style={{ ...S.label, marginBottom: 8 }}>Savings &amp; investments</h2>
-          <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: 14 }}>Envelope-fed savings plus separate investment buckets. 🛒 purchase · ✓ loan paid</p>
+        <section className="sec" aria-label="Cash savings trajectory chart">
+          <h2 style={{ ...S.label, marginBottom: 8 }}>Cash savings</h2>
+          <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: 14 }}>Liquid cash only (investment accounts are separate — see year table and net worth). 🛒 purchase · ✓ loan paid</p>
           <ResponsiveContainer width="100%" height={230}>
             <AreaChart data={chart} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
               <defs>
@@ -708,7 +855,7 @@ export function PlanEditor({ initialScenario, color, onSave, onCancel, isSaving,
                     ['Year',      'Calendar year'],
                     ['Savings',   'Cash / HYSA balance'],
                     ['Invest',    'Investment account balances'],
-                    ['To liquid', 'Cash to savings + investments after debts & loans'],
+                    ['To cash', 'Net monthly change to cash savings after debts, loans, and investment contributions'],
                     ['Debt −',    'Monthly debt payments'],
                     ['Loans −',   'Monthly loan payments'],
                     ['Active',    'Active purchase loans'],

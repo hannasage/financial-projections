@@ -99,9 +99,9 @@ export interface SimRow {
   investmentContributions: number;
   /** Sum of itemized recurring charges / month. */
   recurringTotal:  number;
-  /** Savings + investments (liquid assets for charts). */
+  /** Cash savings balance only (excludes invested balances). */
   liquidTotal:     number;
-  /** Cash routed to savings + investments this month (after debts & loans). */
+  /** Net monthly change to cash savings (excludes $ routed to investment accounts). */
   liquidInflow:    number;
   debtBurden:      number;
   /** Estimated total debt still owed (amortized balances + linear est. for payment-only debts) */

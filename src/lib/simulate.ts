@@ -304,8 +304,9 @@ export function simulate(
       const mv = p.marketValue;
       if (mv != null && mv > 0 && m >= p.startM) purchaseAssetMV += mv;
     }
-    const liquidTotal   = savings + investmentBalance;
-    const liquidInflow  = savingsInflow + invContribSum;
+    // Liquidity = cash on hand (HYSA / checking path only). Investments stay in net worth, not "liquid".
+    const liquidTotal   = savings;
+    const liquidInflow  = savingsInflow;
     const rawNetWorth    = savings + investmentBalance + purchaseAssetMV - debtOutstanding;
     const netWorth       = Math.round(rawNetWorth);
     const netWorthChange = Math.round(rawNetWorth - prevNWForChange);
