@@ -1,8 +1,33 @@
 import type {
-  Debt, DebtAdjustment, Purchase, Raise, Investment, RecurringCharge, Scenario, Plan, InvestmentContributionAdjustment, InvestmentAdjustmentRecurrence,
-  Marker, MarkerColorKey,
+  Debt, DebtAdjustment, Purchase, Raise, Investment, RecurringCharge, Scenario, Plan,
+  InvestmentContributionAdjustment, InvestmentAdjustmentRecurrence,
+  Marker, MarkerColorKey, BillAdjustment, PurchasePaymentAdjustment,
 } from './types';
 import { MARKER_COLOR_KEYS } from './types';
+
+function sanitizeBillAdjustment(raw: unknown, fallbackId: string): BillAdjustment | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const x = raw as Record<string, unknown>;
+  const id = typeof x.id === 'string' ? x.id : fallbackId;
+  return {
+    id,
+    monthIdx: clampInt(x.monthIdx, 0, 11),
+    year: clampFinite(x.year, 1970, 2200, new Date().getFullYear()),
+    amount: clampFinite(x.amount, 0, 1e9),
+  };
+}
+
+function sanitizePurchasePaymentAdjustment(raw: unknown, fallbackId: string): PurchasePaymentAdjustment | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const x = raw as Record<string, unknown>;
+  const id = typeof x.id === 'string' ? x.id : fallbackId;
+  return {
+    id,
+    monthIdx: clampInt(x.monthIdx, 0, 11),
+    year: clampFinite(x.year, 1970, 2200, new Date().getFullYear()),
+    payment: clampFinite(x.payment, 0, 1e9),
+  };
+}
 
 function clampFinite(n: unknown, min: number, max: number, fallback = 0): number {
   const x = typeof n === 'number' ? n : Number(n);
@@ -59,6 +84,10 @@ export function sanitizePurchase(raw: unknown): Purchase | null {
   const id = typeof r.id === 'string' ? r.id : '';
   if (!id) return null;
   const type = r.type === 'house' ? 'house' : 'loan';
+  const adjustments: PurchasePaymentAdjustment[] | undefined = Array.isArray(r.adjustments)
+    ? r.adjustments.map((a, i) => sanitizePurchasePaymentAdjustment(a, `pmt-adj-${id}-${i}`))
+        .filter((x): x is PurchasePaymentAdjustment => x != null)
+    : undefined;
   return {
     id,
     type,
@@ -72,6 +101,7 @@ export function sanitizePurchase(raw: unknown): Purchase | null {
     multiplier: clampFinite(r.multiplier, 0.01, 100, 1),
     payment: clampFinite(r.payment, 0, 1e9),
     marketValue: r.marketValue != null ? clampFinite(r.marketValue, 0, 1e12) : undefined,
+    ...(adjustments?.length ? { adjustments } : {}),
   };
 }
 
@@ -198,10 +228,15 @@ export function sanitizeRecurringCharge(raw: unknown): RecurringCharge | null {
   const r = raw as Record<string, unknown>;
   const id = typeof r.id === 'string' ? r.id : '';
   if (!id) return null;
+  const adjustments: BillAdjustment[] | undefined = Array.isArray(r.adjustments)
+    ? r.adjustments.map((a, i) => sanitizeBillAdjustment(a, `rc-adj-${id}-${i}`))
+        .filter((x): x is BillAdjustment => x != null)
+    : undefined;
   return {
     id,
     label: safeString(r.label),
     amount: clampFinite(r.amount, 0, 1e9),
+    ...(adjustments?.length ? { adjustments } : {}),
   };
 }
 
@@ -234,7 +269,13 @@ export function sanitizeScenario(raw: unknown): Scenario {
     taxPct: clampFinite(r.taxPct, 0, 100, 25),
     baseSalary: clampFinite(r.baseSalary, 0, 1e12),
     housingCost: clampFinite(r.housingCost, 0, 1e9),
+    housingAdjustments: Array.isArray(r.housingAdjustments)
+      ? r.housingAdjustments.map((a, i) => sanitizeBillAdjustment(a, `h-adj-${i}`)).filter((x): x is BillAdjustment => x != null)
+      : undefined,
     monthlyAllowance: clampFinite(r.monthlyAllowance, 0, 1e9),
+    allowanceAdjustments: Array.isArray(r.allowanceAdjustments)
+      ? r.allowanceAdjustments.map((a, i) => sanitizeBillAdjustment(a, `a-adj-${i}`)).filter((x): x is BillAdjustment => x != null)
+      : undefined,
     retirementAge: r.retirementAge != null ? clampFinite(r.retirementAge, 0, 120) : undefined,
     retirementEnvelope: r.retirementEnvelope != null ? clampFinite(r.retirementEnvelope, 0, 1e9) : undefined,
     debts,

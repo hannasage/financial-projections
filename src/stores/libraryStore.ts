@@ -6,7 +6,8 @@ import { getTodayStartDate } from '../lib/constants';
 export type Profile = Pick<Scenario,
   'startMonthIdx' | 'startYear' | 'envelope' | 'startSavings' | 'startAge' | 'horizonYears' |
   'returnMode' | 'hysaRate' | 'taxPct' | 'baseSalary' | 'housingCost' | 'monthlyAllowance' |
-  'inflationPctAnnual' | 'retirementAge' | 'retirementEnvelope'
+  'inflationPctAnnual' | 'retirementAge' | 'retirementEnvelope' |
+  'housingAdjustments' | 'allowanceAdjustments'
 >;
 
 const today = getTodayStartDate();

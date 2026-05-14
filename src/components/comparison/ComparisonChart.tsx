@@ -118,9 +118,14 @@ export function ComparisonChart({ plans, activePlanIds, clipYears, tab }: Props)
 
   const maxHorizon = Math.max(0, ...activePlans.map(p => mergeIntoScenario(p.scenario, library).horizonYears));
   const clipped    = clipYears != null ? Math.min(clipYears, maxHorizon) : maxHorizon;
-  const startDecimalYr = safeStartYear + safeStartMonthIdx / 12;
-  const minYr      = startDecimalYr - 1 / 12;
-  const maxYr      = startDecimalYr + clipped;
+  const startDecimalYr  = safeStartYear + safeStartMonthIdx / 12;
+  const now             = new Date();
+  const todayDecimalYr  = now.getFullYear() + now.getMonth() / 12;
+  const viewStartDecimalYr = Math.max(startDecimalYr, todayDecimalYr);
+  const minYr = viewStartDecimalYr - 1 / 12;
+  const maxYr = clipYears != null
+    ? viewStartDecimalYr + clipped
+    : startDecimalYr + maxHorizon;
 
   const lonePlanInvestments = useMemo(() => {
     if (tab !== 'investments' || activePlans.length !== 1) return [];

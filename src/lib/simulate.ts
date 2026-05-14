@@ -12,6 +12,36 @@ function effectivePayment(d: Debt, m: number, startYear: number, startMonthIdx: 
   return payment;
 }
 
+function effectiveBillAmount(
+  adjustments: Array<{ year: number; monthIdx: number; amount: number }> | undefined,
+  base: number,
+  m: number,
+  startYear: number,
+  startMonthIdx: number,
+): number {
+  if (!adjustments?.length) return base;
+  let amount = base;
+  for (const a of adjustments) {
+    if (m >= absMo(a.year, a.monthIdx, startYear, startMonthIdx)) amount = a.amount;
+  }
+  return amount;
+}
+
+function effectivePurchasePayment(
+  adjustments: Array<{ year: number; monthIdx: number; payment: number }> | undefined,
+  base: number,
+  m: number,
+  startYear: number,
+  startMonthIdx: number,
+): number {
+  if (!adjustments?.length) return base;
+  let payment = base;
+  for (const a of adjustments) {
+    if (m >= absMo(a.year, a.monthIdx, startYear, startMonthIdx)) payment = a.payment;
+  }
+  return payment;
+}
+
 /**
  * All occurrence months ≤ {@link maxM} for an adjustment. Single-shot adjustments yield one
  * value (their `year`/`monthIdx`); recurring adjustments yield `first, first+everyMonths, …`
@@ -220,7 +250,7 @@ export function simulate(
   /** End-of-month remaining principal per purchase loan (for debt paydown chart) */
   const purchaseLoanDyn: number[] = purchaseMeta.map(() => 0);
 
-  const recurringTotal = recurringList.reduce((s, c) => s + Math.max(0, c.amount), 0);
+  // recurringTotal is now computed per-month inside the loop to apply per-charge adjustments.
 
   type InvMeta = {
     id: string;
@@ -335,6 +365,12 @@ export function simulate(
       );
     }
 
+    const housingCostM = effectiveBillAmount(scenario.housingAdjustments, housingCost, m, safeStartYear, safeStartMonthIdx);
+    const allowanceM   = effectiveBillAmount(scenario.allowanceAdjustments, monthlyAllowance ?? 0, m, safeStartYear, safeStartMonthIdx);
+    const recurringTotalM = recurringList.reduce(
+      (s, c) => s + Math.max(0, effectiveBillAmount(c.adjustments, c.amount, m, safeStartYear, safeStartMonthIdx)), 0,
+    );
+
     let purchaseOutflow = 0;
     let downThisMonth   = 0;
     let rentRelief      = 0;
@@ -345,15 +381,16 @@ export function simulate(
         downThisMonth += p.downPayment;
       }
       if (m >= p.startM && m < p.payoffM) {
-        purchaseOutflow += p.payment;
+        const effPmt = effectivePurchasePayment(p.adjustments, p.payment, m, safeStartYear, safeStartMonthIdx);
+        purchaseOutflow += effPmt;
         activePurchases.push(p.label || 'Purchase');
       }
       if (p.type === 'house' && m >= p.startM) {
-        rentRelief += housingCost;
+        rentRelief += housingCostM;
       }
     }
 
-    // Amortize purchase-loan principal (same schedule as purchaseOutflow) for debtOutstanding chart.
+    // Amortize purchase-loan principal (mirrors purchaseOutflow) for debtOutstanding chart.
     for (let i = 0; i < purchaseMeta.length; i++) {
       const p = purchaseMeta[i];
       if (!p.loanAmount || p.loanAmount <= 0 || !p.payment || p.payment <= 0) {
@@ -368,14 +405,14 @@ export function simulate(
         (p.startM >= 0 && m === p.startM) || (p.startM < 0 && m === 0);
       const balStart = atFirstSimMonth ? p.initialPrincipal : purchaseLoanDyn[i];
       const rMo = p.rate / 100 / 12;
+      const effPmt = effectivePurchasePayment(p.adjustments, p.payment, m, safeStartYear, safeStartMonthIdx);
       purchaseLoanDyn[i] = rMo > 0
-        ? Math.max(0, balStart * (1 + rMo) - p.payment)
-        : Math.max(0, balStart - p.payment);
+        ? Math.max(0, balStart * (1 + rMo) - effPmt)
+        : Math.max(0, balStart - effPmt);
     }
 
     if (downThisMonth > 0) savings -= downThisMonth;
 
-    const allowance = monthlyAllowance ?? 0;
     let invContribSum = 0;
     for (let i = 0; i < nInv; i++) {
       if (invSold[i]) continue;
@@ -389,7 +426,7 @@ export function simulate(
     // After retirement age, switch to retirement envelope and stop applying raise delta.
     const liveEnvelope = retired ? retirementEnvelopeLive : envelopeLive;
     const streamBonus = retired ? 0 : raiseBonus;
-    const effectiveEnv  = liveEnvelope + streamBonus - housingCost - allowance - recurringTotal + rentRelief;
+    const effectiveEnv  = liveEnvelope + streamBonus - housingCostM - allowanceM - recurringTotalM + rentRelief;
     const savingsInflow = effectiveEnv - debtBurden - purchaseOutflow - invContribSum;
 
     savings =
@@ -512,7 +549,7 @@ export function simulate(
       savingsInflow:   Math.round(savingsInflow),
       investments:     Math.round(investmentBalance),
       investmentContributions: Math.round(invContribSum),
-      recurringTotal:  Math.round(recurringTotal),
+      recurringTotal:  Math.round(recurringTotalM),
       liquidTotal:     Math.round(liquidTotal),
       liquidInflow:    Math.round(liquidInflow),
       debtBurden:      Math.round(debtBurden),
@@ -521,7 +558,7 @@ export function simulate(
       raiseBonus:      Math.round(raiseBonus),
       rentRelief:      Math.round(rentRelief),
       effectiveEnv:    Math.round(effectiveEnv),
-      monthlyAllowance: Math.round(allowance),
+      monthlyAllowance: Math.round(allowanceM),
       activePurchases,
       netWorth,
       netWorthChange,

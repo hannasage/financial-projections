@@ -387,6 +387,7 @@ export default function Dashboard() {
                         onEdit={setEditingPlanId}
                         onDelete={handleDelete}
                         onDuplicate={handleDuplicate}
+                        comparisonTab={comparisonTab}
                       />
                     ))}
                   </div>

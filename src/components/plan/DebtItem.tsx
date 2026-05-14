@@ -144,52 +144,73 @@ export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Prop
         <span style={{ fontSize: 11, color: COLORS.dim }}>→ {money(d.payment)}/mo freed</span>
       </div>
 
-      {/* Adjustments */}
+      {/* Payment adjustments */}
       {(d.adjustments ?? []).length > 0 && (
-        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {(d.adjustments ?? []).map((adj, i) => (
-            <div key={adj.id} style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 10, color: COLORS.muted, letterSpacing: 1, whiteSpace: 'nowrap' }}>ADJ {i + 1}</span>
-              <select
-                value={adj.monthIdx} aria-label={`Adjustment ${i + 1} start month`}
-                onChange={e => {
-                  const next = (d.adjustments ?? []).map(a => a.id === adj.id ? { ...a, monthIdx: +e.target.value } : a);
-                  onChange({ adjustments: next });
-                }}
-                style={{ ...S.field, flex: '1 1 60px' }}
-              >
-                {MONTHS.map((mo, mi) => <option key={mi} value={mi}>{mo}</option>)}
-              </select>
-              <select
-                value={adj.year} aria-label={`Adjustment ${i + 1} start year`}
-                onChange={e => {
-                  const next = (d.adjustments ?? []).map(a => a.id === adj.id ? { ...a, year: +e.target.value } : a);
-                  onChange({ adjustments: next });
-                }}
-                style={{ ...S.field, flex: '1 1 60px' }}
-              >
-                {years.map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span aria-hidden="true" style={{ color: COLORS.red, fontSize: 10 }}>−$</span>
-                <input
-                  type="number" value={adj.payment} min={0} max={99999} step={25}
-                  aria-label={`Adjustment ${i + 1} payment amount`}
-                  onChange={e => {
-                    const next = (d.adjustments ?? []).map(a => a.id === adj.id ? { ...a, payment: +e.target.value } : a);
-                    onChange({ adjustments: next });
-                  }}
-                  style={{ ...S.field, width: 72 }}
-                />
-                <span aria-hidden="true" style={{ fontSize: 11, color: COLORS.muted }}>/mo</span>
+        <div style={{ marginTop: 10 }}>
+          <span style={{ ...S.label, fontSize: 9, letterSpacing: 1.5, display: 'block', marginBottom: 8 }}>Payment modifications</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+            {(d.adjustments ?? []).map((adj, i) => (
+              <div key={adj.id} style={{
+                background: COLORS.faint,
+                border: `1px solid ${COLORS.border}`,
+                borderRadius: 6,
+                padding: '10px 12px',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={{ ...S.label, fontSize: 9 }}>Mod {i + 1}</span>
+                  <button
+                    onClick={() => onChange({ adjustments: (d.adjustments ?? []).filter(a => a.id !== adj.id) })}
+                    aria-label={`Remove adjustment ${i + 1}`}
+                    style={{ ...iconBtn, fontSize: 15 }}
+                  >×</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(70px, 1fr))', gap: 7 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label htmlFor={`adj-m-${adj.id}`} style={S.label}>Month</label>
+                    <select id={`adj-m-${adj.id}`}
+                      value={adj.monthIdx} aria-label={`Adjustment ${i + 1} month`}
+                      onChange={e => {
+                        const next = (d.adjustments ?? []).map(a => a.id === adj.id ? { ...a, monthIdx: +e.target.value } : a);
+                        onChange({ adjustments: next });
+                      }}
+                      style={{ ...S.field, width: '100%' }}
+                    >
+                      {MONTHS.map((mo, mi) => <option key={mi} value={mi}>{mo}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label htmlFor={`adj-y-${adj.id}`} style={S.label}>Year</label>
+                    <select id={`adj-y-${adj.id}`}
+                      value={adj.year} aria-label={`Adjustment ${i + 1} year`}
+                      onChange={e => {
+                        const next = (d.adjustments ?? []).map(a => a.id === adj.id ? { ...a, year: +e.target.value } : a);
+                        onChange({ adjustments: next });
+                      }}
+                      style={{ ...S.field, width: '100%' }}
+                    >
+                      {years.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label htmlFor={`adj-p-${adj.id}`} style={S.label}>New payment</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                      <span aria-hidden="true" style={{ color: COLORS.red, fontSize: 10 }}>−$</span>
+                      <input id={`adj-p-${adj.id}`}
+                        type="number" value={adj.payment} min={0} max={99999} step={25}
+                        aria-label={`Adjustment ${i + 1} payment amount`}
+                        onChange={e => {
+                          const next = (d.adjustments ?? []).map(a => a.id === adj.id ? { ...a, payment: +e.target.value } : a);
+                          onChange({ adjustments: next });
+                        }}
+                        style={{ ...S.field, width: '100%' }}
+                      />
+                      <span aria-hidden="true" style={{ fontSize: 10, color: COLORS.muted }}>/mo</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <button
-                onClick={() => onChange({ adjustments: (d.adjustments ?? []).filter(a => a.id !== adj.id) })}
-                aria-label={`Remove adjustment ${i + 1}`}
-                style={iconBtn}
-              >×</button>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
@@ -209,7 +230,7 @@ export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Prop
           color: COLORS.muted, borderRadius: 4, padding: '5px 10px',
           cursor: 'pointer', fontFamily: "'IBM Plex Mono', monospace",
         }}
-      >+ Add Adjustment</button>
+      >+ Add Modification</button>
     </div>
   );
 }

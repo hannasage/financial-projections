@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useColors } from '../../stores/themeStore';
 import { MONTHS, buildPurchaseYears, START_YEAR } from '../../lib/constants';
 import { absMo, money, stdPayment, payoffMonths, totalInterest, payoffLabel, remainingBalance } from '../../lib/finance';
-import type { Purchase } from '../../lib/types';
+import type { Purchase, PurchasePaymentAdjustment } from '../../lib/types';
 
 interface Props {
   p:           Purchase;
@@ -281,6 +281,93 @@ export function PurchaseItem({
           </div>
         </div>
       </div>
+
+      {/* Payment adjustments */}
+      {!alreadyDone && (() => {
+        const adjs = p.adjustments ?? [];
+        const addAdj = () => {
+          const adj: PurchasePaymentAdjustment = {
+            id: crypto.randomUUID(),
+            year: p.year > startYear ? p.year + 1 : startYear + 1,
+            monthIdx: p.monthIdx,
+            payment: p.payment,
+          };
+          onChange({ adjustments: [...adjs, adj] });
+        };
+        const changeAdj = (id: string, patch: Partial<PurchasePaymentAdjustment>) =>
+          onChange({ adjustments: adjs.map(a => a.id === id ? { ...a, ...patch } : a) });
+        const removeAdj = (id: string) =>
+          onChange({ adjustments: adjs.filter(a => a.id !== id) });
+
+        return (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${COLORS.border}55` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: adjs.length ? 8 : 0 }}>
+              <span style={S.label}>Payment modifications</span>
+              <button type="button" onClick={addAdj}
+                style={{
+                  ...S.field, padding: '4px 8px', fontSize: 10,
+                  color: COLORS.muted, background: 'transparent', cursor: 'pointer',
+                }}
+              >+ Add</button>
+            </div>
+            {adjs.length > 0 && (
+              <p style={{ fontSize: 10, color: COLORS.muted, margin: '0 0 8px', lineHeight: 1.45 }}>
+                Change the monthly payment from a specific date onward. Payoff-date estimate uses the original payment schedule.
+              </p>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+              {adjs.map((adj, i) => (
+                <div key={adj.id} style={{
+                  background: COLORS.faint,
+                  border: `1px solid ${COLORS.border}`,
+                  borderRadius: 6,
+                  padding: '10px 12px',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ ...S.label, fontSize: 9 }}>Mod {i + 1}</span>
+                    <button type="button" onClick={() => removeAdj(adj.id)}
+                      aria-label={`Remove payment modification ${i + 1}`}
+                      style={{ background: 'none', border: 'none', color: COLORS.muted, cursor: 'pointer', fontSize: 15, padding: '0 2px', lineHeight: 1 }}>
+                      ×
+                    </button>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(70px, 1fr))', gap: 7 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <label htmlFor={`pm-m-${adj.id}`} style={S.label}>Month</label>
+                      <select id={`pm-m-${adj.id}`} value={adj.monthIdx}
+                        aria-label={`Modification ${i + 1} month`}
+                        onChange={e => changeAdj(adj.id, { monthIdx: +e.target.value })}
+                        style={{ ...S.field, width: '100%' }}>
+                        {MONTHS.map((mo, mi) => <option key={mi} value={mi}>{mo}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <label htmlFor={`pm-y-${adj.id}`} style={S.label}>Year</label>
+                      <select id={`pm-y-${adj.id}`} value={adj.year}
+                        aria-label={`Modification ${i + 1} year`}
+                        onChange={e => changeAdj(adj.id, { year: +e.target.value })}
+                        style={{ ...S.field, width: '100%' }}>
+                        {purchaseYears.map(y => <option key={y} value={y}>{y}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <label htmlFor={`pm-p-${adj.id}`} style={S.label}>New payment</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <span aria-hidden="true" style={{ color: COLORS.muted, fontSize: 10 }}>$</span>
+                        <input id={`pm-p-${adj.id}`} type="number" min={0} step={25} value={adj.payment}
+                          aria-label={`Modification ${i + 1} payment amount`}
+                          onChange={e => changeAdj(adj.id, { payment: Math.max(0, +e.target.value) })}
+                          style={{ ...S.field, width: '100%' }} />
+                        <span aria-hidden="true" style={{ fontSize: 10, color: COLORS.muted }}>/mo</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Already-paid-off warning */}
       {alreadyDone && (

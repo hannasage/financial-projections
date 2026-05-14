@@ -629,7 +629,13 @@ export function PlanEditor({ initialScenario, color, markers, onSave, onCancel, 
               onSaveToLibrary={() => saveCustomToLibrary('recurring', c.id, c.label)}
               savedToLibrary={Boolean(savedToLibrary[c.id])}
             >
-              <RecurringChargeItem c={c} onChange={p => changeRecurringCharge(c.id, p)} onRemove={() => rmRecurringCharge(c.id)} />
+              <RecurringChargeItem
+                c={c}
+                startYear={mergedScenario.startYear}
+                horizonYears={mergedScenario.horizonYears}
+                onChange={p => changeRecurringCharge(c.id, p)}
+                onRemove={() => rmRecurringCharge(c.id)}
+              />
             </CustomItemWrapper>
           ))}
         </section>

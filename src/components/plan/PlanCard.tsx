@@ -7,7 +7,17 @@ import { simulate, computePayoffs } from '../../lib/simulate';
 import { money, getReturnRate } from '../../lib/finance';
 import { mergeIntoScenario } from '../../lib/resolveItems';
 import { MONTHS } from '../../lib/constants';
-import type { Plan } from '../../lib/types';
+import type { Plan, SimRow } from '../../lib/types';
+
+type ComparisonMetric = 'liquidity' | 'debt' | 'investments' | 'netWorth';
+
+function metricValue(row: SimRow | undefined, metric: ComparisonMetric): number {
+  if (!row) return 0;
+  if (metric === 'debt')        return row.debtOutstanding;
+  if (metric === 'investments') return row.investments;
+  if (metric === 'netWorth')    return row.netWorth;
+  return row.liquidTotal;
+}
 
 function absMonthToLabel(m: number, startYear: number, startMonthIdx: number): string {
   const safeStartYear = Number.isFinite(startYear) ? startYear : new Date().getFullYear();
@@ -19,22 +29,38 @@ function absMonthToLabel(m: number, startYear: number, startMonthIdx: number): s
 }
 
 interface PlanCardProps {
-  plan:        Plan;
-  onEdit:      (id: string) => void;
-  onDelete:    (id: string) => void;
-  onDuplicate: (plan: Plan) => void;
+  plan:            Plan;
+  onEdit:          (id: string) => void;
+  onDelete:        (id: string) => void;
+  onDuplicate:     (plan: Plan) => void;
+  comparisonTab?:  ComparisonMetric;
 }
 
-export function PlanCard({ plan, onEdit, onDelete, onDuplicate }: PlanCardProps) {
+export function PlanCard({ plan, onEdit, onDelete, onDuplicate, comparisonTab = 'liquidity' }: PlanCardProps) {
   const COLORS  = useColors();
   const library = useLibraryStore();
   const merged  = mergeIntoScenario(plan.scenario, library);
   const rows    = simulate(merged, getReturnRate(merged));
   const endM    = merged.horizonYears * 12;
   const midM    = Math.round(endM / 2);
-  const start   = rows[0]?.liquidTotal ?? 0;
-  const mid     = rows[Math.min(midM, rows.length - 1)]?.liquidTotal ?? 0;
-  const end     = rows[Math.min(endM, rows.length - 1)]?.liquidTotal ?? 0;
+
+  const now            = new Date();
+  const todayDecimalYr = now.getFullYear() + now.getMonth() / 12;
+  const startDecimalYr = merged.startYear + merged.startMonthIdx / 12;
+  const nowOffsetM     = Math.round(Math.max(0, (todayDecimalYr - startDecimalYr) * 12));
+  const clampedNowM    = Math.min(nowOffsetM, rows.length - 1);
+
+  const nowVal  = metricValue(rows[clampedNowM], comparisonTab);
+  const mid     = metricValue(rows[Math.min(midM, rows.length - 1)], comparisonTab);
+  const end     = metricValue(rows[Math.min(endM, rows.length - 1)], comparisonTab);
+
+  const METRIC_LABELS: Record<ComparisonMetric, string> = {
+    liquidity:   'Liquidity',
+    debt:        'Debt',
+    investments: 'Invested',
+    netWorth:    'Net worth',
+  };
+
   const growthLabel =
     merged.returnMode === 'none'   ? '0% cash' :
     merged.returnMode === 'hysa'   ? `${merged.hysaRate ?? 4.5}% HYSA` :
@@ -120,17 +146,27 @@ export function PlanCard({ plan, onEdit, onDelete, onDuplicate }: PlanCardProps)
         </div>
 
         {/* Milestones */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4 }}>
-          {[
-            { label: 'Start',                                            val: start },
-            { label: `Yr ${Math.round(merged.horizonYears / 2)}`, val: mid   },
-            { label: `Yr ${merged.horizonYears}`,                 val: end   },
-          ].map(({ label, val }) => (
-            <div key={label} style={{ background: COLORS.faint, borderRadius: 4, padding: '6px 8px' }}>
-              <div style={{ fontSize: 10, color: COLORS.muted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 3 }}>{label}</div>
-              <div style={{ fontSize: 12, color: plan.color, fontWeight: 600 }}>{money(val)}</div>
-            </div>
-          ))}
+        <div>
+          <div style={{ fontSize: 9, color: COLORS.dim, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 5 }}>
+            {METRIC_LABELS[comparisonTab]}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4 }}>
+            {[
+              { label: 'Now',                                              val: nowVal },
+              { label: `Yr ${Math.round(merged.horizonYears / 2)}`, val: mid    },
+              { label: `Yr ${merged.horizonYears}`,                 val: end    },
+            ].map(({ label, val }) => (
+              <div key={label} style={{ background: COLORS.faint, borderRadius: 4, padding: '6px 8px' }}>
+                <div style={{ fontSize: 10, color: COLORS.muted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 3 }}>{label}</div>
+                <div style={{
+                  fontSize: 12, fontWeight: 600,
+                  color: comparisonTab === 'debt' && val > 0 ? COLORS.red
+                    : comparisonTab === 'netWorth' && val < 0 ? COLORS.red
+                      : plan.color,
+                }}>{money(val)}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Badges */}

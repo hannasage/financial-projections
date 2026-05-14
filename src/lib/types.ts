@@ -16,8 +16,12 @@ export interface Scenario {
   taxPct:              number;
   baseSalary:   number;
   housingCost:  number;
+  /** Time-scoped overrides for housing cost (new absolute amount from that month forward). */
+  housingAdjustments?:   BillAdjustment[];
   /** Misc monthly spending drawn from envelope (discretionary allowance, etc.) */
   monthlyAllowance: number;
+  /** Time-scoped overrides for monthly allowance. */
+  allowanceAdjustments?: BillAdjustment[];
   /** Annual nominal envelope growth (each full projection year). Optional; 0 = off. */
   inflationPctAnnual?: number;
   /** Optional retirement switch age. When reached, retirement envelope settings apply. */
@@ -34,6 +38,22 @@ export interface Scenario {
 }
 
 export interface DebtAdjustment {
+  id:       string;
+  monthIdx: number;
+  year:     number;
+  payment:  number;
+}
+
+/** A time-scoped override that sets a new absolute monthly amount from the given date forward. */
+export interface BillAdjustment {
+  id:       string;
+  monthIdx: number;
+  year:     number;
+  amount:   number;
+}
+
+/** A time-scoped override that sets a new monthly payment on a loan from the given date forward. */
+export interface PurchasePaymentAdjustment {
   id:       string;
   monthIdx: number;
   year:     number;
@@ -65,6 +85,8 @@ export interface Purchase {
   payment:     number;
   /** If set (>0), counts toward net worth (e.g. home/car resale value). Omit or 0 = liability-only (typical unsecured/vehicle loan). */
   marketValue?: number;
+  /** Optional payment schedule changes by month (new absolute monthly payment from that date forward). */
+  adjustments?: PurchasePaymentAdjustment[];
 }
 
 export interface Raise {
@@ -129,9 +151,10 @@ export interface InvestmentAdjustmentRecurrence {
 }
 
 export interface RecurringCharge {
-  id:     string;
-  label:  string;
-  amount: number;
+  id:          string;
+  label:       string;
+  amount:      number;
+  adjustments?: BillAdjustment[];
 }
 
 export interface SimRow {
