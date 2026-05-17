@@ -5,7 +5,7 @@ import type {
 } from './types';
 import { MARKER_COLOR_KEYS } from './types';
 
-function sanitizeBillAdjustment(raw: unknown, fallbackId: string): BillAdjustment | null {
+export function sanitizeBillAdjustment(raw: unknown, fallbackId: string): BillAdjustment | null {
   if (!raw || typeof raw !== 'object') return null;
   const x = raw as Record<string, unknown>;
   const id = typeof x.id === 'string' ? x.id : fallbackId;
@@ -15,6 +15,13 @@ function sanitizeBillAdjustment(raw: unknown, fallbackId: string): BillAdjustmen
     year: clampFinite(x.year, 1970, 2200, new Date().getFullYear()),
     amount: clampFinite(x.amount, 0, 1e9),
   };
+}
+
+export function sanitizeBillAdjustmentArray(arr: unknown, idPrefix: string = 'b-adj'): BillAdjustment[] {
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .map((a, i) => sanitizeBillAdjustment(a, `${idPrefix}-${i}`))
+    .filter((x): x is BillAdjustment => x != null);
 }
 
 function sanitizePurchasePaymentAdjustment(raw: unknown, fallbackId: string): PurchasePaymentAdjustment | null {

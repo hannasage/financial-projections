@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { Debt, Purchase, Raise, Scenario, Investment, RecurringCharge, Marker } from '../lib/types';
 import { getTodayStartDate } from '../lib/constants';
+import { sanitizeBillAdjustmentArray } from '../lib/sanitizeFinanceData';
 
 export type Profile = Pick<Scenario,
   'startMonthIdx' | 'startYear' | 'envelope' | 'startSavings' | 'startAge' | 'horizonYears' |
@@ -42,6 +43,16 @@ export function normalizeProfile(input?: Partial<Profile> | null): Profile {
   const retirementEnvelope = Number.isFinite(retirementEnvelopeRaw)
     ? Math.max(0, retirementEnvelopeRaw)
     : undefined;
+  const hysaRateRaw = Number(from.hysaRate);
+  const hysaRate = Number.isFinite(hysaRateRaw) && hysaRateRaw >= 0
+    ? Math.min(50, hysaRateRaw)
+    : DEFAULT_PROFILE.hysaRate;
+  const housingAdjustments = from.housingAdjustments != null
+    ? sanitizeBillAdjustmentArray(from.housingAdjustments, 'h-adj')
+    : undefined;
+  const allowanceAdjustments = from.allowanceAdjustments != null
+    ? sanitizeBillAdjustmentArray(from.allowanceAdjustments, 'a-adj')
+    : undefined;
   return {
     ...DEFAULT_PROFILE,
     ...from,
@@ -50,6 +61,9 @@ export function normalizeProfile(input?: Partial<Profile> | null): Profile {
     inflationPctAnnual,
     retirementAge,
     retirementEnvelope,
+    hysaRate,
+    ...(housingAdjustments?.length ? { housingAdjustments } : { housingAdjustments: undefined }),
+    ...(allowanceAdjustments?.length ? { allowanceAdjustments } : { allowanceAdjustments: undefined }),
   };
 }
 

@@ -84,7 +84,7 @@ function BillModificationSection({
           >+ Change</button>
         </div>
         {adjustments.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {adjustments.map((adj, i) => (
               <div key={adj.id} style={{
                 background: COLORS.faint,

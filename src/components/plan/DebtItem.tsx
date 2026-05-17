@@ -115,7 +115,7 @@ export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Prop
                 Override the monthly payment from a specific date onward.
               </p>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {adjs.map((adj, i) => (
                 <div key={adj.id} style={{
                   background: COLORS.faint,

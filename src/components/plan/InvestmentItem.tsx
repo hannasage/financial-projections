@@ -292,7 +292,7 @@ export function InvestmentItem({
         {adjustments.length === 0 && (
           <div style={{ fontSize: 10, color: COLORS.muted, fontStyle: 'italic' }}>No adjustments scheduled.</div>
         )}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
         {adjustments.map(adj => {
           const isLegacy = adj.monthlyContribution != null && adj.monthlyContributionDelta == null;
           const delta = adj.monthlyContributionDelta ?? 0;

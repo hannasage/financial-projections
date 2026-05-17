@@ -326,7 +326,7 @@ export function PurchaseItem({
                 Change the monthly payment from a specific date onward. The payoff date and interest shown above will update to reflect the new schedule.
               </p>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {adjs.map((adj, i) => (
                 <div key={adj.id} style={{
                   background: COLORS.faint,

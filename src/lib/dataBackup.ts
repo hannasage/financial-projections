@@ -5,6 +5,7 @@ import type {
   Raise,
   Investment,
   RecurringCharge,
+  Marker,
 } from './types';
 import { LOCAL_MODE } from './mode';
 import { useLibraryStore, normalizeProfile, type Profile } from '../stores/libraryStore';
@@ -15,6 +16,7 @@ import {
   sanitizeRaiseArray,
   sanitizeInvestmentArray,
   sanitizeRecurringChargeArray,
+  sanitizeMarkerArray,
   sanitizePlan,
 } from './sanitizeFinanceData';
 
@@ -34,6 +36,7 @@ export interface ProjectionBackupV1 {
     raises:           Raise[];
     investments:      Investment[];
     recurringCharges: RecurringCharge[];
+    markers:          Marker[];
   };
   plans:      Plan[];
   planOrder:  string[];
@@ -84,6 +87,7 @@ export function buildBackupPayload(): ProjectionBackupV1 {
       raises:           lib.raises,
       investments:      lib.investments,
       recurringCharges: lib.recurringCharges,
+      markers:          lib.markers,
     },
     plans,
     planOrder:  planOrder.filter((id): id is string => typeof id === 'string'),
@@ -118,6 +122,7 @@ export function parseBackupJson(text: string): ProjectionBackupV1 | null {
       raises:           sanitizeRaiseArray(lib.raises),
       investments:      sanitizeInvestmentArray(lib.investments),
       recurringCharges: sanitizeRecurringChargeArray(lib.recurringCharges),
+      markers:          sanitizeMarkerArray(lib.markers),
     },
     plans:      coercePlans(data.plans),
     planOrder:  coerceStringArray(data.planOrder),
@@ -141,6 +146,7 @@ export function applyBackup(payload: ProjectionBackupV1): ApplyBackupResult {
       raises:           sanitizeRaiseArray(L.raises),
       investments:      sanitizeInvestmentArray(L.investments),
       recurringCharges: sanitizeRecurringChargeArray(L.recurringCharges),
+      markers:          sanitizeMarkerArray(L.markers ?? []),
     });
 
     if (!LOCAL_MODE) {
