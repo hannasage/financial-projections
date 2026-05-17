@@ -228,7 +228,7 @@ export function MarkersEditor({
           </p>
         ) : null
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+        <div style={{ display: 'grid', gap: 10 }}>
           {markers.map(m => {
             const hasEnd = m.endYear != null && m.endMonthIdx != null;
             const swatch = resolveMarkerColor(m.color, COLORS);
