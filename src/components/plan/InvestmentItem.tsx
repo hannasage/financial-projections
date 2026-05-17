@@ -277,15 +277,13 @@ export function InvestmentItem({
             type="button"
             onClick={addAdjustment}
             style={{
-              ...S.field,
-              padding: '4px 8px',
-              fontSize: 10,
-              color: COLORS.muted,
-              background: 'transparent',
-              cursor: 'pointer',
+              padding: '5px 12px', fontSize: 10, letterSpacing: 1,
+              borderRadius: 4, border: `1px solid ${COLORS.purple}`,
+              background: `${COLORS.purple}18`, color: COLORS.purple,
+              fontFamily: "'IBM Plex Mono', monospace", cursor: 'pointer', flexShrink: 0,
             }}
           >
-            + Add
+            + Add Adjustment
           </button>
         </div>
         <p style={{ fontSize: 10, color: COLORS.muted, margin: '0 0 8px', lineHeight: 1.45 }}>

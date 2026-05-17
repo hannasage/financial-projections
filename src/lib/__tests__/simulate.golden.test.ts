@@ -173,4 +173,116 @@ describe('simulate golden fixtures', () => {
     expect(rows[26].investments).toBe(1000);
     expect(rows[27].investments).toBe(1000);
   });
+
+  it('cascade: freed payment is debited from savings and applied to next debt', () => {
+    // Debt A: payment-only $100/mo, payoff at plan start (month 0) — immediately frees $100
+    // Debt B: $900 balance, 0% APR, $200/mo scheduled payment
+    // With cascade: A's freed $100 redirects to B, so B gets $300/mo → paid off in 3 months.
+    // Total cash out of savings must stay $300/mo while cascade is active,
+    // not drop to $200 once A is "done".
+    const rows = simulate(
+      scenarioBase({
+        envelope: 0,
+        startSavings: 10_000,
+        cascadeDebts: true,
+        debts: [
+          {
+            id: 'a',
+            label: 'Debt A',
+            payment: 100,
+            payoffYear: 2026,
+            payoffMonthIdx: 0, // fixedPayoffM = 0 → freed from month 0
+            balance: 0,
+          },
+          {
+            id: 'b',
+            label: 'Debt B',
+            payment: 200,
+            payoffYear: 2030,
+            payoffMonthIdx: 0,
+            balance: 900,
+            apr: 0,
+          },
+        ],
+      }),
+      0,
+    );
+    runSimulationInvariantChecks(rows);
+
+    // Month 0: A freed ($100) + B ($200) = $300 total debited.
+    expect(rows[0].debtBurden).toBe(300);
+    expect(rows[0].savings).toBe(10_000 - 300);
+
+    // Month 1: cascade still active — same total outflow.
+    expect(rows[1].debtBurden).toBe(300);
+    expect(rows[1].savings).toBe(10_000 - 600);
+
+    // B's balance shrinks by $300/mo (accelerated payoff).
+    expect(rows[0].debtOutstanding).toBe(600); // 900 − 300
+    expect(rows[1].debtOutstanding).toBe(300); // 600 − 300
+  });
+
+  it('cascade: when there is no balance-tracked debt to receive the pool, freed payment stays as savings', () => {
+    // Debt A (payment-only, $100/mo, done at month 0) and
+    // Debt B (payment-only, $200/mo, payoff at month 6).
+    // Neither has a balance — pool has nowhere to apply, so freed payment goes to savings.
+    const rows = simulate(
+      scenarioBase({
+        envelope: 0,
+        startSavings: 5_000,
+        cascadeDebts: true,
+        debts: [
+          {
+            id: 'a',
+            label: 'Debt A',
+            payment: 100,
+            payoffYear: 2026,
+            payoffMonthIdx: 0,
+            balance: 0,
+          },
+          {
+            id: 'b',
+            label: 'Debt B',
+            payment: 200,
+            payoffYear: 2026,
+            payoffMonthIdx: 6,
+            balance: 0,
+          },
+        ],
+      }),
+      0,
+    );
+    runSimulationInvariantChecks(rows);
+
+    // A is freed immediately, but no balance-tracked debt can absorb the pool.
+    // Only B's scheduled payment goes out — A's freed $100 stays in savings.
+    expect(rows[0].debtBurden).toBe(200);
+    expect(rows[0].savings).toBe(5_000 - 200);
+  });
+
+  it('cascade with APR: interest accrues on remaining balance while cascade accelerates payoff', () => {
+    // Debt A: $100/mo, done at month 0.
+    // Debt B: $1000 balance, 12% APR (1%/mo), $150/mo payment.
+    //   Without cascade:  B.dynBal[0] = 1000*1.01 − 150 = 860
+    //   With cascade:     B.dynBal[0] = 1000*1.01 − 250 = 760 (150+100 pool)
+    const rows = simulate(
+      scenarioBase({
+        envelope: 0,
+        startSavings: 10_000,
+        cascadeDebts: true,
+        debts: [
+          { id: 'a', label: 'A', payment: 100, payoffYear: 2026, payoffMonthIdx: 0, balance: 0 },
+          { id: 'b', label: 'B', payment: 150, payoffYear: 2030, payoffMonthIdx: 0, balance: 1000, apr: 12 },
+        ],
+      }),
+      0,
+    );
+    runSimulationInvariantChecks(rows);
+
+    // Month 0: debtBurden = 250 (150 own + 100 pool)
+    expect(rows[0].debtBurden).toBe(250);
+    expect(rows[0].savings).toBe(10_000 - 250);
+    // B's balance after month 0: interest applied then 250 paid
+    expect(rows[0].debtOutstanding).toBeCloseTo(1000 * 1.01 - 250, 0); // ≈ 760
+  });
 });

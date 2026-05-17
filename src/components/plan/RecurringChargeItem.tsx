@@ -83,9 +83,19 @@ export function RecurringChargeItem({ c, onChange, onRemove, startYear = START_Y
       </div>
 
       {/* Modifications */}
-      {adjustments.length > 0 && (
-        <div style={{ marginBottom: 8 }}>
-          <span style={{ ...S.label, fontSize: 9, letterSpacing: 1.5, display: 'block', marginBottom: 8 }}>Amount modifications</span>
+      <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${COLORS.border}55` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: adjustments.length ? 8 : 0 }}>
+          <span style={{ ...S.label, fontSize: 9, letterSpacing: 1.5 }}>Amount modifications</span>
+          <button type="button" onClick={addAdj}
+            style={{
+              padding: '5px 12px', fontSize: 10, letterSpacing: 1,
+              borderRadius: 4, border: `1px solid ${COLORS.purple}`,
+              background: `${COLORS.purple}18`, color: COLORS.purple,
+              fontFamily: "'IBM Plex Mono', monospace", cursor: 'pointer', flexShrink: 0,
+            }}
+          >+ Change</button>
+        </div>
+        {adjustments.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
             {adjustments.map((adj, i) => (
               <div key={adj.id} style={{
@@ -135,18 +145,8 @@ export function RecurringChargeItem({ c, onChange, onRemove, startYear = START_Y
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      <button type="button" onClick={addAdj}
-        style={{
-          marginTop: adjustments.length > 0 ? 0 : 8,
-          fontSize: 10, letterSpacing: 1,
-          background: 'none', border: `1px dashed ${COLORS.border}`,
-          color: COLORS.muted, borderRadius: 4, padding: '5px 10px',
-          cursor: 'pointer', fontFamily: "'IBM Plex Mono', monospace",
-        }}
-      >+ Add Modification</button>
+        )}
+      </div>
     </div>
   );
 }

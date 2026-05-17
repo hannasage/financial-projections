@@ -37,7 +37,7 @@ interface BillModSectionProps {
   horizonYears: number;
   fieldStyle:  React.CSSProperties;
   labelStyle:  React.CSSProperties;
-  addBtnStyle: React.CSSProperties;
+  color:       string;
   COLORS:      ThemeColors;
 }
 
@@ -45,7 +45,7 @@ function BillModificationSection({
   label, description, fieldId, value, onValueChange,
   adjustments, onAdjustmentsChange,
   startYear, startMonthIdx, horizonYears,
-  fieldStyle, labelStyle, addBtnStyle, COLORS,
+  fieldStyle, labelStyle, color, COLORS,
 }: BillModSectionProps) {
   const yearOpts = buildPurchaseYears(startYear, horizonYears);
 
@@ -69,59 +69,68 @@ function BillModificationSection({
       <input id={fieldId} type="number" value={value} min={0} step={25}
         onChange={e => onValueChange(Math.max(0, +e.target.value))}
         style={{ ...fieldStyle, width: '100%' }} />
-      <p style={{ fontSize: 10, color: COLORS.muted, margin: '6px 0 8px', lineHeight: 1.5 }}>{description}</p>
+      <p style={{ fontSize: 10, color: COLORS.muted, margin: '6px 0 0', lineHeight: 1.5 }}>{description}</p>
 
-      {adjustments.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 8 }}>
-          {adjustments.map((adj, i) => (
-            <div key={adj.id} style={{
-              background: COLORS.faint,
-              border: `1px solid ${COLORS.border}`,
-              borderRadius: 6,
-              padding: '10px 12px',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span style={{ ...labelStyle, fontSize: 9 }}>Modification {i + 1}</span>
-                <button type="button" onClick={() => removeAdj(adj.id)}
-                  style={{ background: 'none', border: 'none', color: COLORS.muted, cursor: 'pointer', fontSize: 16, padding: '0 2px', lineHeight: 1 }}>
-                  ×
-                </button>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span style={labelStyle}>Month</span>
-                  <select value={adj.monthIdx} aria-label={`Modification ${i + 1} month`}
-                    onChange={e => changeAdj(adj.id, { monthIdx: +e.target.value })}
-                    style={{ ...fieldStyle, width: '100%' }}>
-                    {MONTHS.map((mo, mi) => <option key={mi} value={mi}>{mo}</option>)}
-                  </select>
+      <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${COLORS.border}55` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: adjustments.length ? 8 : 0 }}>
+          <span style={{ ...labelStyle, fontSize: 9, letterSpacing: 1.5 }}>Modifications</span>
+          <button type="button" onClick={addAdj}
+            style={{
+              padding: '5px 12px', fontSize: 10, letterSpacing: 1,
+              borderRadius: 4, border: `1px solid ${color}`,
+              background: `${color}18`, color,
+              fontFamily: "'IBM Plex Mono', monospace", cursor: 'pointer', flexShrink: 0,
+            }}
+          >+ Change</button>
+        </div>
+        {adjustments.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+            {adjustments.map((adj, i) => (
+              <div key={adj.id} style={{
+                background: COLORS.faint,
+                border: `1px solid ${COLORS.border}`,
+                borderRadius: 6,
+                padding: '10px 12px',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={{ ...labelStyle, fontSize: 9 }}>Mod {i + 1}</span>
+                  <button type="button" onClick={() => removeAdj(adj.id)}
+                    style={{ background: 'none', border: 'none', color: COLORS.muted, cursor: 'pointer', fontSize: 16, padding: '0 2px', lineHeight: 1 }}>
+                    ×
+                  </button>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span style={labelStyle}>Year</span>
-                  <select value={adj.year} aria-label={`Modification ${i + 1} year`}
-                    onChange={e => changeAdj(adj.id, { year: +e.target.value })}
-                    style={{ ...fieldStyle, width: '100%' }}>
-                    {yearOpts.map(y => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <label htmlFor={`adj-amt-${adj.id}`} style={labelStyle}>New amount / mo</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ color: COLORS.muted, fontSize: 10 }}>$</span>
-                    <input id={`adj-amt-${adj.id}`} type="number" value={adj.amount} min={0} step={25}
-                      onChange={e => changeAdj(adj.id, { amount: Math.max(0, +e.target.value) })}
-                      style={{ ...fieldStyle, width: '100%' }} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={labelStyle}>Month</span>
+                    <select value={adj.monthIdx} aria-label={`Modification ${i + 1} month`}
+                      onChange={e => changeAdj(adj.id, { monthIdx: +e.target.value })}
+                      style={{ ...fieldStyle, width: '100%' }}>
+                      {MONTHS.map((mo, mi) => <option key={mi} value={mi}>{mo}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={labelStyle}>Year</span>
+                    <select value={adj.year} aria-label={`Modification ${i + 1} year`}
+                      onChange={e => changeAdj(adj.id, { year: +e.target.value })}
+                      style={{ ...fieldStyle, width: '100%' }}>
+                      {yearOpts.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label htmlFor={`adj-amt-${adj.id}`} style={labelStyle}>New amount / mo</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ color: COLORS.muted, fontSize: 10 }}>$</span>
+                      <input id={`adj-amt-${adj.id}`} type="number" value={adj.amount} min={0} step={25}
+                        onChange={e => changeAdj(adj.id, { amount: Math.max(0, +e.target.value) })}
+                        style={{ ...fieldStyle, width: '100%' }} />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <button type="button" onClick={addAdj} style={{ ...addBtnStyle, fontSize: 10, padding: '5px 10px' }}>
-        + Add modification
-      </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -541,7 +550,7 @@ export default function IO() {
             horizonYears={p.horizonYears}
             fieldStyle={field}
             labelStyle={labelStyle}
-            addBtnStyle={addBtnStyle}
+            color={COLORS.purple}
             COLORS={COLORS}
           />
 
@@ -559,7 +568,7 @@ export default function IO() {
             horizonYears={p.horizonYears}
             fieldStyle={field}
             labelStyle={labelStyle}
-            addBtnStyle={addBtnStyle}
+            color={COLORS.purple}
             COLORS={COLORS}
           />
 

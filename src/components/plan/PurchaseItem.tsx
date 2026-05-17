@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useColors } from '../../stores/themeStore';
 import { MONTHS, buildPurchaseYears, START_YEAR } from '../../lib/constants';
-import { absMo, money, stdPayment, payoffMonths, totalInterest, payoffLabel, remainingBalance } from '../../lib/finance';
+import { absMo, money, stdPayment, remainingBalance, adjustedPurchaseStats } from '../../lib/finance';
 import type { Purchase, PurchasePaymentAdjustment } from '../../lib/types';
 
 interface Props {
@@ -65,17 +65,26 @@ export function PurchaseItem({
 
   const alreadyDone = isHistorical && effectivePrincipal <= 0;
 
-  const payMo    = payoffMonths(effectivePrincipal, p.rate, p.payment);
-  const interest = totalInterest(effectivePrincipal, p.rate, p.payment);
+  // Use adjustedPurchaseStats so the display reflects payment adjustments.
+  // Historical loans start from plan-month 0 (effectivePrincipal is already the plan-start balance).
+  // Future/current loans start from their own startM so adjustments resolve at the right dates.
+  const adjStats = adjustedPurchaseStats(
+    effectivePrincipal, p.rate, p.payment, p.adjustments,
+    isHistorical ? 0 : startM,
+    startYear, startMonthIdx,
+  );
+  const payMo    = adjStats.payoffMonths;
+  const interest = adjStats.totalInterest;
   const netImpact = isHouse ? p.payment - housingCost : null;
 
   const std60 = stdPayment(p.loanAmount, p.rate, 60);
 
-  // Payoff label relative to simulation start for historical loans.
-  const payoffLabelStr = isHistorical
-    ? (payMo >= 9999 ? 'never' : payMo === 0 ? '—'
-        : `${MONTHS[payMo % 12]} ${startYear + Math.floor(payMo / 12)}`)
-    : payoffLabel(p, startYear, startMonthIdx);
+  // Payoff label — both branches resolve to a plan-absolute month index then format.
+  // Historical: payMo is already plan-relative (purchaseAbsStartM=0). Future: offset by startM.
+  const payoffAbsM = isHistorical ? payMo : startM + payMo;
+  const payoffLabelStr = payMo >= 9999 ? 'never'
+    : payMo === 0 ? '—'
+    : `${MONTHS[((payoffAbsM % 12) + 12) % 12]} ${startYear + Math.floor(payoffAbsM / 12)}`;
   const purchaseYears = buildPurchaseYears(startYear, horizonYears);
 
   const multOptions = [
@@ -300,19 +309,21 @@ export function PurchaseItem({
           onChange({ adjustments: adjs.filter(a => a.id !== id) });
 
         return (
-          <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${COLORS.border}55` }}>
+          <div style={{ paddingBottom: 24, borderTop: `1px solid ${COLORS.border}55` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: adjs.length ? 8 : 0 }}>
               <span style={S.label}>Payment modifications</span>
               <button type="button" onClick={addAdj}
                 style={{
-                  ...S.field, padding: '4px 8px', fontSize: 10,
-                  color: COLORS.muted, background: 'transparent', cursor: 'pointer',
+                  padding: '5px 12px', fontSize: 10, letterSpacing: 1,
+                  borderRadius: 4, border: `1px solid ${COLORS.purple}`,
+                  background: `${COLORS.purple}18`, color: COLORS.purple,
+                  fontFamily: "'IBM Plex Mono', monospace", cursor: 'pointer', flexShrink: 0,
                 }}
-              >+ Add</button>
+              >+ Change</button>
             </div>
             {adjs.length > 0 && (
               <p style={{ fontSize: 10, color: COLORS.muted, margin: '0 0 8px', lineHeight: 1.45 }}>
-                Change the monthly payment from a specific date onward. Payoff-date estimate uses the original payment schedule.
+                Change the monthly payment from a specific date onward. The payoff date and interest shown above will update to reflect the new schedule.
               </p>
             )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
@@ -378,7 +389,7 @@ export function PurchaseItem({
 
       {/* Stats bar */}
       {!alreadyDone && p.loanAmount > 0 && p.payment > 0 && (
-        <div style={{ borderRadius: 4, overflow: 'hidden', border: `1px solid ${COLORS.border}` }}>
+        <div style={{ borderRadius: 4, overflow: 'hidden', border: `1px solid ${COLORS.border}`, marginTop: 4 }}>
           <div style={{ display: 'flex' }}>
             {[
               { key: 'Payoff',    val: payoffLabelStr,                                                               col: COLORS.accent },

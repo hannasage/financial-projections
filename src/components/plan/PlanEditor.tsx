@@ -185,9 +185,25 @@ export function PlanEditor({ initialScenario, color, markers, onSave, onCancel, 
   const toggleInvestment = useCallback((id: string) => setExcludedInvestmentIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]), []);
   const toggleRecurringCharge = useCallback((id: string) => setExcludedRecurringChargeIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]), []);
 
+  const scrollToCustomItem = (id: string) => {
+    setTimeout(() => {
+      document.querySelector(`[data-custom-item="${id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 80);
+  };
+
   // Fork: copy a library item as a scenario-specific custom item, then exclude the library version.
-  const forkDebt     = useCallback((d: Debt)     => { setDebts(ds => [...ds, { ...d, id: makeId() }]);     setExcludedDebtIds(ids     => ids.includes(d.id) ? ids : [...ids, d.id]); }, []);
-  const forkPurchase = useCallback((p: Purchase) => { setPurchases(ps => [...ps, { ...p, id: makeId() }]); setExcludedPurchaseIds(ids => ids.includes(p.id) ? ids : [...ids, p.id]); }, []);
+  const forkDebt = useCallback((d: Debt) => {
+    const newId = makeId();
+    setDebts(ds => [...ds, { ...d, id: newId }]);
+    setExcludedDebtIds(ids => ids.includes(d.id) ? ids : [...ids, d.id]);
+    scrollToCustomItem(newId);
+  }, []);
+  const forkPurchase = useCallback((p: Purchase) => {
+    const newId = makeId();
+    setPurchases(ps => [...ps, { ...p, id: newId }]);
+    setExcludedPurchaseIds(ids => ids.includes(p.id) ? ids : [...ids, p.id]);
+    scrollToCustomItem(newId);
+  }, []);
   const forkRaise    = useCallback((r: Raise)    => { setRaises(rs => [...rs, { ...r, id: makeId() }]);     setExcludedRaiseIds(ids    => ids.includes(r.id) ? ids : [...ids, r.id]); }, []);
   const forkInvestment = useCallback((i: Investment) => {
     setInvestments(xs => [...xs, { ...i, id: makeId() }]);
@@ -564,14 +580,15 @@ export function PlanEditor({ initialScenario, color, markers, onSave, onCancel, 
             </div>
           )}
           {debts.map(d => (
-            <CustomItemWrapper
-              key={d.id}
-              kindLabel="Custom debt · scenario only"
-              onSaveToLibrary={() => saveCustomToLibrary('debt', d.id, d.label)}
-              savedToLibrary={Boolean(savedToLibrary[d.id])}
-            >
-              <DebtItem d={d} startYear={mergedScenario.startYear} onChange={p => changeDebt(d.id, p)} onRemove={() => rmDebt(d.id)} />
-            </CustomItemWrapper>
+            <div key={d.id} data-custom-item={d.id}>
+              <CustomItemWrapper
+                kindLabel="Custom debt · scenario only"
+                onSaveToLibrary={() => saveCustomToLibrary('debt', d.id, d.label)}
+                savedToLibrary={Boolean(savedToLibrary[d.id])}
+              >
+                <DebtItem d={d} startYear={mergedScenario.startYear} onChange={p => changeDebt(d.id, p)} onRemove={() => rmDebt(d.id)} />
+              </CustomItemWrapper>
+            </div>
           ))}
         </section>
 
@@ -687,16 +704,17 @@ export function PlanEditor({ initialScenario, color, markers, onSave, onCancel, 
             </p>
           )}
           {purchases.map(p => (
-            <CustomItemWrapper
-              key={p.id}
-              kindLabel="Custom purchase · scenario only"
-              onSaveToLibrary={() => saveCustomToLibrary('purchase', p.id, p.label)}
-              savedToLibrary={Boolean(savedToLibrary[p.id])}
-            >
-              <PurchaseItem p={p} startYear={mergedScenario.startYear} startMonthIdx={mergedScenario.startMonthIdx} housingCost={mergedScenario.housingCost}
-                horizonYears={mergedScenario.horizonYears}
-                onChange={patch => changePurchase(p.id, patch)} onRemove={() => rmPurchase(p.id)} />
-            </CustomItemWrapper>
+            <div key={p.id} data-custom-item={p.id}>
+              <CustomItemWrapper
+                kindLabel="Custom purchase · scenario only"
+                onSaveToLibrary={() => saveCustomToLibrary('purchase', p.id, p.label)}
+                savedToLibrary={Boolean(savedToLibrary[p.id])}
+              >
+                <PurchaseItem p={p} startYear={mergedScenario.startYear} startMonthIdx={mergedScenario.startMonthIdx} housingCost={mergedScenario.housingCost}
+                  horizonYears={mergedScenario.horizonYears}
+                  onChange={patch => changePurchase(p.id, patch)} onRemove={() => rmPurchase(p.id)} />
+              </CustomItemWrapper>
+            </div>
           ))}
         </section>
 

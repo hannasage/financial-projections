@@ -1,5 +1,5 @@
 import type { Scenario, SimRow, Debt, Investment, InvestmentContributionAdjustment } from './types';
-import { absMo, netMonthly, payoffMonths, stdPayment, remainingBalance } from './finance';
+import { absMo, netMonthly, payoffMonths, stdPayment, remainingBalance, adjustedPurchaseStats } from './finance';
 import { getTodayStartDate } from './constants';
 import { runSimulationInvariantChecks } from './simulateInvariants';
 
@@ -193,18 +193,24 @@ export function simulate(
       return {
         ...p,
         startM,
-        payoffM: startM + payoffMonths(p.loanAmount, p.rate, p.payment),
+        payoffM: startM + adjustedPurchaseStats(
+          p.loanAmount, p.rate, p.payment, p.adjustments, startM, safeStartYear, safeStartMonthIdx,
+        ).payoffMonths,
         initialPrincipal: p.loanAmount,
       };
     }
     // Past loan: remaining balance uses the 1× std payment as historical baseline,
     // so the multiplier only accelerates payments from simulation start onward.
+    // payoffM is plan-relative (not startM-relative) because `remaining` is already
+    // the balance at plan-start month 0 — simulating from purchaseAbsStartM=0 is correct.
     const basePmt   = stdPayment(p.loanAmount, p.rate, p.termMonths) || p.payment;
     const remaining = remainingBalance(p.loanAmount, p.rate, basePmt, -startM);
     return {
       ...p,
       startM,
-      payoffM: startM + payoffMonths(remaining, p.rate, p.payment),
+      payoffM: adjustedPurchaseStats(
+        remaining, p.rate, p.payment, p.adjustments, 0, safeStartYear, safeStartMonthIdx,
+      ).payoffMonths,
       initialPrincipal: remaining,
     };
   });
@@ -356,8 +362,12 @@ export function simulate(
           : Math.max(0, dt.dynBal - pmt);
         if (dt.dynBal <= 0) dt.done = true;
       }
+      // poolApplied: freed payments actually redirected to a debt balance (not left as savings).
+      // These must be debited from cash just like regular payments — the total outflow stays
+      // constant while cascade is active; only the destination changes.
+      const poolApplied = pool - poolLeft;
       const currentBudget = debtTrackers.reduce((s, dt) => s + (dt.done ? 0 : dt.payment), 0);
-      debtBurden = debtTrackers.some(dt => !dt.done) ? currentBudget : 0;
+      debtBurden = currentBudget + poolApplied;
     } else {
       debtBurden = debts.reduce(
         (sum, d) => sum + (m < absMo(d.payoffYear, d.payoffMonthIdx, safeStartYear, safeStartMonthIdx) ? effectivePayment(d, m, safeStartYear, safeStartMonthIdx) : 0),
@@ -593,11 +603,15 @@ export function computePayoffs(scenario: Scenario): {
   for (const p of purchases) {
     const startM = absMo(p.year, p.monthIdx, safeStartYear, safeStartMonthIdx);
     if (startM >= 0) {
-      purchasePayoffM.set(p.id, startM + payoffMonths(p.loanAmount, p.rate, p.payment));
+      purchasePayoffM.set(p.id, startM + adjustedPurchaseStats(
+        p.loanAmount, p.rate, p.payment, p.adjustments, startM, safeStartYear, safeStartMonthIdx,
+      ).payoffMonths);
     } else {
       const basePmt   = stdPayment(p.loanAmount, p.rate, p.termMonths) || p.payment;
       const remaining = remainingBalance(p.loanAmount, p.rate, basePmt, -startM);
-      purchasePayoffM.set(p.id, payoffMonths(remaining, p.rate, p.payment));
+      purchasePayoffM.set(p.id, adjustedPurchaseStats(
+        remaining, p.rate, p.payment, p.adjustments, 0, safeStartYear, safeStartMonthIdx,
+      ).payoffMonths);
     }
   }
 

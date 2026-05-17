@@ -76,6 +76,47 @@ export const totalInterest = (
     : Math.max(0, monthlyPmt * mo - principal);
 };
 
+/**
+ * Simulate purchase loan amortization month-by-month, honoring any payment adjustments.
+ * Returns the number of monthly payments needed from `purchaseAbsStartM` until the balance
+ * reaches zero, plus the total interest accrued.
+ *
+ * For fresh loans pass `initialPrincipal = loanAmount` and `purchaseAbsStartM = startM`.
+ * For historical (past) loans pass `initialPrincipal = remaining balance at plan start`
+ * and `purchaseAbsStartM = 0` (plan-start-relative lookup is correct because `remaining`
+ * already reflects everything before the plan started).
+ *
+ * Fast-paths to the closed-form formulas when there are no adjustments.
+ */
+export function adjustedPurchaseStats(
+  initialPrincipal:  number,
+  annualRate:        number,
+  basePayment:       number,
+  adjustments:       Array<{ year: number; monthIdx: number; payment: number }> | undefined,
+  purchaseAbsStartM: number,
+  simStartYear:      number,
+  simStartMonthIdx:  number,
+): { payoffMonths: number; totalInterest: number } {
+  if (!adjustments?.length) {
+    const mo = payoffMonths(initialPrincipal, annualRate, basePayment);
+    return { payoffMonths: mo, totalInterest: totalInterest(initialPrincipal, annualRate, basePayment) };
+  }
+  const r = annualRate / 100 / 12;
+  let bal = initialPrincipal;
+  let accruedInterest = 0;
+  for (let mo = 0; mo <= 9999; mo++) {
+    const m = purchaseAbsStartM + mo;
+    let pmt = basePayment;
+    for (const a of adjustments) {
+      if (m >= absMo(a.year, a.monthIdx, simStartYear, simStartMonthIdx)) pmt = a.payment;
+    }
+    accruedInterest += r > 0 ? bal * r : 0;
+    bal = r > 0 ? Math.max(0, bal * (1 + r) - pmt) : Math.max(0, bal - pmt);
+    if (bal <= 0) return { payoffMonths: mo + 1, totalInterest: Math.max(0, Math.round(accruedInterest)) };
+  }
+  return { payoffMonths: 9999, totalInterest: 0 };
+}
+
 export function payoffLabel(
   purchase: Purchase,
   startYear: number = START_YEAR,
