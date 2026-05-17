@@ -1,5 +1,5 @@
 import type { Scenario, SimRow, Debt, Investment, InvestmentContributionAdjustment } from './types';
-import { absMo, netMonthly, payoffMonths, stdPayment, remainingBalance, adjustedPurchaseStats } from './finance';
+import { absMo, netMonthly, stdPayment, remainingBalance, adjustedPurchaseStats } from './finance';
 import { getTodayStartDate } from './constants';
 import { runSimulationInvariantChecks } from './simulateInvariants';
 
