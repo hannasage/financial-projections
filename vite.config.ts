@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  resolve: {
+    // Ensure hoisted copies of peer deps are used, not the ones inside projection-ui/node_modules
+    dedupe: ['react', 'react-dom', 'recharts', 'zustand', '@dnd-kit/core', '@dnd-kit/sortable'],
+  },
   plugins: [
     react(),
     VitePWA({

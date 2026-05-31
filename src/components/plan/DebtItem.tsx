@@ -1,6 +1,7 @@
 import { useColors } from '../../stores/themeStore';
 import { MONTHS, buildYears, START_YEAR } from '../../lib/constants';
 import { money, payoffMonths, totalInterest } from '../../lib/finance';
+import { Input, Select, Button } from '@hannasage/projection-ui';
 import type { Debt, DebtAdjustment } from '../../lib/types';
 
 interface Props {
@@ -13,18 +14,6 @@ interface Props {
 export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Props) {
   const COLORS = useColors();
 
-  const S = {
-    label: { fontSize: 10, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase' as const },
-    field: {
-      background: COLORS.faint, color: COLORS.text,
-      border: `1px solid ${COLORS.border}`,
-      borderRadius: 4, padding: '7px 9px',
-      fontFamily: "'IBM Plex Mono', monospace",
-      fontSize: 11, outline: 'none',
-      WebkitAppearance: 'none' as const, appearance: 'none' as const,
-    },
-  };
-
   const iconBtn: React.CSSProperties = {
     background: 'none', border: 'none', color: COLORS.muted,
     fontSize: 18, cursor: 'pointer', padding: '0 4px', lineHeight: 1,
@@ -34,7 +23,6 @@ export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Prop
   const apr     = d.apr     ?? 0;
   const hasStats = balance > 0;
 
-  // Computed from balance + APR + payment
   const moRemaining   = hasStats ? payoffMonths(balance, apr, d.payment) : 0;
   const interest      = hasStats ? totalInterest(balance, apr, d.payment) : 0;
   const moInterest    = apr > 0  ? (balance * apr) / 100 / 12 : 0;
@@ -46,50 +34,49 @@ export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Prop
     ? 'never'
     : `${MONTHS[computedMonthIdx]} ${computedYear}`;
 
-  // Auto-compute payoff date from balance math and include in patch.
   const withPayoff = (bal: number, rate: number, pmt: number, patch: Partial<Debt>): Partial<Debt> => {
     if (bal <= 0 || pmt <= 0) return patch;
     const mo = payoffMonths(bal, rate, pmt);
     if (mo <= 0 || mo >= 9999) return patch;
     return { ...patch, payoffYear: startYear + Math.floor(mo / 12), payoffMonthIdx: mo % 12 };
   };
-  const years = buildYears(startYear, 30);
+
+  const years     = buildYears(startYear, 30);
+  const monthOpts = MONTHS.map((mo, i) => ({ value: String(i), label: mo }));
+  const yearOpts  = years.map(y => ({ value: String(y), label: String(y) }));
 
   return (
     <div style={{ padding: '12px 0', borderBottom: `1px solid ${COLORS.border}20` }}>
 
       {/* Row 1: label · payment · remove */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-        <input
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 8 }}>
+        <Input
           value={d.label}
           placeholder="Label (e.g. Visa, student loan…)"
           aria-label="Debt label"
           onChange={e => onChange({ label: e.target.value })}
-          style={{ ...S.field, flex: 1, minWidth: 0 }}
+          containerStyle={{ flex: 1, minWidth: 0 }}
         />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span aria-hidden="true" style={{ color: COLORS.red, fontSize: 10 }}>−$</span>
-          <input
-            type="number" value={d.payment} min={0} max={99999} step={25}
-            aria-label={`Monthly payment for ${d.label || 'this debt'}`}
-            onChange={e => onChange(withPayoff(balance, apr, +e.target.value, { payment: +e.target.value }))}
-            style={{ ...S.field, width: 80 }}
-          />
-          <span aria-hidden="true" style={{ fontSize: 11, color: COLORS.muted }}>/mo</span>
-        </div>
-        <button onClick={onRemove} aria-label={`Remove debt: ${d.label || 'unnamed'}`} style={iconBtn}>×</button>
+        <Input
+          type="number"
+          value={d.payment}
+          min={0}
+          max={99999}
+          step={25}
+          prefix="−$"
+          suffix="/mo"
+          aria-label={`Monthly payment for ${d.label || 'this debt'}`}
+          onChange={e => onChange(withPayoff(balance, apr, +e.target.value, { payment: +e.target.value }))}
+          containerStyle={{ width: 130, flexShrink: 0 }}
+        />
+        <button onClick={onRemove} aria-label={`Remove debt: ${d.label || 'unnamed'}`} style={{ ...iconBtn, marginBottom: 4 }}>×</button>
       </div>
 
-      {/* Payment modifications — inline under the payment field */}
+      {/* Payment schedule adjustments */}
       {(() => {
         const adjs = d.adjustments ?? [];
         const addAdj = () => {
-          const adj: DebtAdjustment = {
-            id: crypto.randomUUID(),
-            monthIdx: 0,
-            year: startYear + 1,
-            payment: d.payment,
-          };
+          const adj: DebtAdjustment = { id: crypto.randomUUID(), monthIdx: 0, year: startYear + 1, payment: d.payment };
           onChange({ adjustments: [...adjs, adj] });
         };
         const changeAdj = (id: string, patch: Partial<DebtAdjustment>) =>
@@ -100,15 +87,8 @@ export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Prop
         return (
           <div style={{ marginBottom: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: adjs.length ? 8 : 0 }}>
-              <span style={{ ...S.label, fontSize: 9, letterSpacing: 1.5 }}>Payment schedule</span>
-              <button type="button" onClick={addAdj}
-                style={{
-                  padding: '5px 12px', fontSize: 10, letterSpacing: 1,
-                  borderRadius: 4, border: `1px solid ${COLORS.purple}`,
-                  background: `${COLORS.purple}18`, color: COLORS.purple,
-                  fontFamily: "'IBM Plex Mono', monospace", cursor: 'pointer', flexShrink: 0,
-                }}
-              >+ Change</button>
+              <span style={{ fontSize: 9, letterSpacing: 1.5, color: COLORS.muted, textTransform: 'uppercase' }}>Payment schedule</span>
+              <Button variant="primary" size="sm" onClick={addAdj}>+ Change</Button>
             </div>
             {adjs.length > 0 && (
               <p style={{ fontSize: 10, color: COLORS.muted, margin: '0 0 8px', lineHeight: 1.45 }}>
@@ -118,48 +98,26 @@ export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Prop
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {adjs.map((adj, i) => (
                 <div key={adj.id} style={{
-                  background: COLORS.faint,
-                  border: `1px solid ${COLORS.border}`,
-                  borderRadius: 6,
-                  padding: '10px 12px',
+                  background: COLORS.faint, border: `1px solid ${COLORS.border}`,
+                  borderRadius: 6, padding: '10px 12px',
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <span style={{ ...S.label, fontSize: 9 }}>From</span>
+                    <span style={{ fontSize: 9, letterSpacing: 1.5, color: COLORS.muted, textTransform: 'uppercase' }}>From</span>
                     <button type="button" onClick={() => removeAdj(adj.id)}
                       aria-label={`Remove payment change ${i + 1}`}
-                      style={{ background: 'none', border: 'none', color: COLORS.muted, cursor: 'pointer', fontSize: 15, padding: '0 2px', lineHeight: 1 }}>
-                      ×
-                    </button>
+                      style={iconBtn}>×</button>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(70px, 1fr))', gap: 7 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <label htmlFor={`adj-m-${adj.id}`} style={S.label}>Month</label>
-                      <select id={`adj-m-${adj.id}`} value={adj.monthIdx}
-                        aria-label={`Change ${i + 1} month`}
-                        onChange={e => changeAdj(adj.id, { monthIdx: +e.target.value })}
-                        style={{ ...S.field, width: '100%' }}>
-                        {MONTHS.map((mo, mi) => <option key={mi} value={mi}>{mo}</option>)}
-                      </select>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <label htmlFor={`adj-y-${adj.id}`} style={S.label}>Year</label>
-                      <select id={`adj-y-${adj.id}`} value={adj.year}
-                        aria-label={`Change ${i + 1} year`}
-                        onChange={e => changeAdj(adj.id, { year: +e.target.value })}
-                        style={{ ...S.field, width: '100%' }}>
-                        {years.map(y => <option key={y} value={y}>{y}</option>)}
-                      </select>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <label htmlFor={`adj-p-${adj.id}`} style={S.label}>New /mo</label>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                        <span aria-hidden="true" style={{ color: COLORS.red, fontSize: 10 }}>−$</span>
-                        <input id={`adj-p-${adj.id}`} type="number" min={0} max={99999} step={25} value={adj.payment}
-                          aria-label={`Change ${i + 1} payment amount`}
-                          onChange={e => changeAdj(adj.id, { payment: Math.max(0, +e.target.value) })}
-                          style={{ ...S.field, width: '100%' }} />
-                      </div>
-                    </div>
+                    <Select label="Month" options={monthOpts} value={String(adj.monthIdx)}
+                      aria-label={`Change ${i + 1} month`}
+                      onChange={e => changeAdj(adj.id, { monthIdx: +e.target.value })} />
+                    <Select label="Year" options={yearOpts} value={String(adj.year)}
+                      aria-label={`Change ${i + 1} year`}
+                      onChange={e => changeAdj(adj.id, { year: +e.target.value })} />
+                    <Input label="New /mo" type="number" min={0} max={99999} step={25}
+                      value={adj.payment} prefix="−$"
+                      aria-label={`Change ${i + 1} payment amount`}
+                      onChange={e => changeAdj(adj.id, { payment: Math.max(0, +e.target.value) })} />
                   </div>
                 </div>
               ))}
@@ -168,37 +126,27 @@ export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Prop
         );
       })()}
 
-      {/* Row 2: balance · APR (optional context fields) */}
+      {/* Balance · APR */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label htmlFor={`bal-${d.id}`} style={S.label}>Balance (optional)</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span aria-hidden="true" style={{ color: COLORS.muted, fontSize: 10 }}>$</span>
-            <input
-              id={`bal-${d.id}`} type="number" value={balance || ''} min={0} step={100}
-              placeholder="0"
-              aria-label={`Current balance for ${d.label || 'this debt'}`}
-              onChange={e => onChange(withPayoff(+e.target.value || 0, apr, d.payment, { balance: +e.target.value || 0 }))}
-              style={{ ...S.field, width: '100%' }}
-            />
-          </div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label htmlFor={`apr-${d.id}`} style={S.label}>APR (optional)</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <input
-              id={`apr-${d.id}`} type="number" value={apr || ''} min={0} max={100} step={0.1}
-              placeholder="0"
-              aria-label={`APR for ${d.label || 'this debt'}`}
-              onChange={e => onChange(withPayoff(balance, +e.target.value || 0, d.payment, { apr: +e.target.value || 0 }))}
-              style={{ ...S.field, width: '100%' }}
-            />
-            <span aria-hidden="true" style={{ color: COLORS.muted, fontSize: 10 }}>%</span>
-          </div>
-        </div>
+        <Input
+          id={`bal-${d.id}`}
+          label="Balance (optional)"
+          type="number" value={balance || ''} min={0} step={100} placeholder="0"
+          prefix="$"
+          aria-label={`Current balance for ${d.label || 'this debt'}`}
+          onChange={e => onChange(withPayoff(+e.target.value || 0, apr, d.payment, { balance: +e.target.value || 0 }))}
+        />
+        <Input
+          id={`apr-${d.id}`}
+          label="APR (optional)"
+          type="number" value={apr || ''} min={0} max={100} step={0.1} placeholder="0"
+          suffix="%"
+          aria-label={`APR for ${d.label || 'this debt'}`}
+          onChange={e => onChange(withPayoff(balance, +e.target.value || 0, d.payment, { apr: +e.target.value || 0 }))}
+        />
       </div>
 
-      {/* Stats bar — shown when balance is set */}
+      {/* Stats bar */}
       {hasStats && (
         <div style={{ borderRadius: 4, overflow: 'hidden', border: `1px solid ${COLORS.border}`, marginBottom: 8 }}>
           {paymentTooLow ? (
@@ -223,15 +171,18 @@ export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Prop
         </div>
       )}
 
-      {/* Computed payoff (non-editable) */}
+      {/* Computed payoff */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, color: COLORS.muted }}>Pays off</span>
-        <span style={{ ...S.field, color: COLORS.accent, minWidth: 120, textAlign: 'center' }}>
+        <span style={{
+          background: COLORS.faint, color: COLORS.accent, minWidth: 120, textAlign: 'center',
+          border: `1px solid ${COLORS.border}`, borderRadius: 4, padding: '7px 9px',
+          fontFamily: 'var(--ui-font)', fontSize: 11,
+        }}>
           {hasStats && !paymentTooLow ? computedLabel : `${MONTHS[d.payoffMonthIdx]} ${d.payoffYear}`}
         </span>
         <span style={{ fontSize: 11, color: COLORS.dim }}>→ {money(d.payment)}/mo freed</span>
       </div>
-
     </div>
   );
 }

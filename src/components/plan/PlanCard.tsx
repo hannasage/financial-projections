@@ -7,6 +7,7 @@ import { simulate, computePayoffs } from '../../lib/simulate';
 import { money, getReturnRate } from '../../lib/finance';
 import { mergeIntoScenario } from '../../lib/resolveItems';
 import { MONTHS } from '../../lib/constants';
+import { Button } from '@hannasage/projection-ui';
 import type { Plan, SimRow } from '../../lib/types';
 
 type ComparisonMetric = 'liquidity' | 'debt' | 'investments' | 'netWorth';
@@ -20,7 +21,7 @@ function metricValue(row: SimRow | undefined, metric: ComparisonMetric): number 
 }
 
 function absMonthToLabel(m: number, startYear: number, startMonthIdx: number): string {
-  const safeStartYear = Number.isFinite(startYear) ? startYear : new Date().getFullYear();
+  const safeStartYear  = Number.isFinite(startYear)    ? startYear    : new Date().getFullYear();
   const safeStartMonth = Number.isFinite(startMonthIdx) ? Math.max(0, Math.min(11, startMonthIdx)) : 0;
   if (!isFinite(m) || m >= 9999) return 'never';
   if (m <= 0) return 'paid off';
@@ -50,9 +51,9 @@ export function PlanCard({ plan, onEdit, onDelete, onDuplicate, comparisonTab = 
   const nowOffsetM     = Math.round(Math.max(0, (todayDecimalYr - startDecimalYr) * 12));
   const clampedNowM    = Math.min(nowOffsetM, rows.length - 1);
 
-  const nowVal  = metricValue(rows[clampedNowM], comparisonTab);
-  const mid     = metricValue(rows[Math.min(midM, rows.length - 1)], comparisonTab);
-  const end     = metricValue(rows[Math.min(endM, rows.length - 1)], comparisonTab);
+  const nowVal = metricValue(rows[clampedNowM], comparisonTab);
+  const mid    = metricValue(rows[Math.min(midM, rows.length - 1)], comparisonTab);
+  const end    = metricValue(rows[Math.min(endM, rows.length - 1)], comparisonTab);
 
   const METRIC_LABELS: Record<ComparisonMetric, string> = {
     liquidity:   'Liquidity',
@@ -64,7 +65,7 @@ export function PlanCard({ plan, onEdit, onDelete, onDuplicate, comparisonTab = 
   const growthLabel =
     merged.returnMode === 'none'   ? '0% cash' :
     merged.returnMode === 'hysa'   ? `${merged.hysaRate ?? 4.5}% HYSA` :
-                                            '7% invested';
+                                     '7% invested';
 
   const { debtPayoffM, purchasePayoffM } = computePayoffs(merged);
   const payoffItems = [
@@ -84,14 +85,6 @@ export function PlanCard({ plan, onEdit, onDelete, onDuplicate, comparisonTab = 
     attributes, listeners, setNodeRef, setActivatorNodeRef,
     transform, transition, isDragging,
   } = useSortable({ id: plan.id });
-
-  const btn = (accent?: string): React.CSSProperties => ({
-    flex: 1, padding: '8px 0', fontSize: 12, borderRadius: 4,
-    border: `1px solid ${accent ?? COLORS.border}`,
-    background: accent ? `${accent}18` : 'transparent',
-    color: accent ?? COLORS.muted,
-    fontFamily: "'IBM Plex Mono', monospace", cursor: 'pointer',
-  });
 
   return (
     <div
@@ -194,14 +187,15 @@ export function PlanCard({ plan, onEdit, onDelete, onDuplicate, comparisonTab = 
 
         {/* Actions */}
         <div style={{ display: 'flex', gap: 6, marginTop: 'auto', flexWrap: 'wrap' }}>
-          <button onClick={() => onEdit(plan.id)} style={btn()}>Edit</button>
-          <button onClick={() => onDuplicate(plan)} style={btn()}>Copy</button>
+          <Button variant="secondary" size="sm" style={{ flex: 1 }} onClick={() => onEdit(plan.id)}>Edit</Button>
+          <Button variant="secondary" size="sm" style={{ flex: 1 }} onClick={() => onDuplicate(plan)}>Copy</Button>
           {confirming ? (
-            <button onClick={() => { onDelete(plan.id); setConfirming(false); }} style={btn(COLORS.red)}>
+            <Button variant="danger" size="sm" style={{ flex: 1 }}
+              onClick={() => { onDelete(plan.id); setConfirming(false); }}>
               Confirm?
-            </button>
+            </Button>
           ) : (
-            <button onClick={() => setConfirming(true)} style={btn()}>Delete</button>
+            <Button variant="secondary" size="sm" style={{ flex: 1 }} onClick={() => setConfirming(true)}>Delete</Button>
           )}
         </div>
       </div>

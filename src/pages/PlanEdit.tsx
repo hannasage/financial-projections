@@ -8,7 +8,7 @@ import { usePlans } from '../hooks/usePlans';
 import { PlanEditor } from '../components/plan/PlanEditor';
 import { ColorPicker } from '../components/shared/ColorPicker';
 import { MarkersEditor } from '../components/plan/MarkersEditor';
-import { Modal } from '../components/shared/Modal';
+import { Modal, Input, Textarea } from '@hannasage/projection-ui';
 import { resolveMarkers } from '../lib/resolveItems';
 import type { Marker, Scenario } from '../lib/types';
 
@@ -58,20 +58,9 @@ export default function PlanEdit() {
     setCopiedMarkerInfo({ libraryId, title: m.title || 'New phase' });
   };
 
-  const S = {
-    field: {
-      background: COLORS.faint, color: COLORS.text,
-      border: `1px solid ${COLORS.border}`,
-      borderRadius: 4, padding: '8px 10px',
-      fontFamily: "'IBM Plex Mono', monospace",
-      fontSize: 12, outline: 'none', width: '100%',
-    },
-    label: { fontSize: 10, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase' as const, display: 'block', marginBottom: 6 },
-  };
-
   if (!plan) {
     return (
-      <div style={{ minHeight: '100vh', background: COLORS.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'IBM Plex Mono', monospace" }}>
+      <div style={{ minHeight: '100vh', background: COLORS.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--ui-font)' }}>
         <div style={{ textAlign: 'center' }}>
           <div className="syne" style={{ fontSize: 20, fontWeight: 700, color: COLORS.text, marginBottom: 8 }}>Plan not found</div>
           <button onClick={() => navigate('/scenarios')} style={{ fontSize: 12, color: COLORS.accent, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
@@ -96,32 +85,30 @@ export default function PlanEdit() {
   };
 
   return (
-    <div style={{ background: COLORS.bg, minHeight: '100vh', color: COLORS.text, fontFamily: "'IBM Plex Mono', monospace" }}>
-      {/* Plan meta header */}
+    <div style={{ background: COLORS.bg, minHeight: '100vh', color: COLORS.text, fontFamily: 'var(--ui-font)' }}>
       <div style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: '16px 18px' }}>
         <div style={{ maxWidth: 780, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 4, height: 40, background: color, borderRadius: 2, flexShrink: 0 }} />
-            <div style={{ flex: 1 }}>
-              <label htmlFor="plan-title" style={S.label}>Plan Title</label>
-              <input
-                id="plan-title" value={title} placeholder="e.g. Conservative plan…"
-                onChange={e => setTitle(e.target.value)}
-                style={S.field}
-              />
-            </div>
-          </div>
-          <div>
-            <label htmlFor="plan-desc" style={S.label}>Description (optional)</label>
-            <textarea
-              id="plan-desc" value={description} rows={2}
-              placeholder="Notes about this scenario…"
-              onChange={e => setDescription(e.target.value)}
-              style={{ ...S.field, resize: 'vertical', lineHeight: 1.6 }}
+            <Input
+              id="plan-title"
+              label="Plan Title"
+              value={title}
+              placeholder="e.g. Conservative plan…"
+              onChange={e => setTitle(e.target.value)}
+              containerStyle={{ flex: 1 }}
             />
           </div>
+          <Textarea
+            id="plan-desc"
+            label="Description (optional)"
+            value={description}
+            rows={2}
+            placeholder="Notes about this scenario…"
+            onChange={e => setDescription(e.target.value)}
+          />
           <div>
-            <span style={S.label}>Color</span>
+            <span style={{ fontSize: 10, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Color</span>
             <ColorPicker value={color} onChange={setColor} />
           </div>
           <div>
@@ -139,14 +126,19 @@ export default function PlanEdit() {
             />
           </div>
           {error && (
-            <div style={{ fontSize: 11, color: COLORS.red, padding: '7px 10px', background: `${COLORS.red}15`, borderRadius: 4, border: `1px solid ${COLORS.red}30` }}>
+            <div style={{
+              fontSize: 11, color: 'var(--ui-danger)',
+              padding: '7px 10px',
+              background: 'color-mix(in srgb, var(--ui-danger) 15%, transparent)',
+              borderRadius: 'var(--ui-radius-md)',
+              border: '1px solid color-mix(in srgb, var(--ui-danger) 30%, transparent)',
+            }}>
               {error}
             </div>
           )}
         </div>
       </div>
 
-      {/* Editor */}
       <PlanEditor
         initialScenario={plan.scenario}
         color={color}
@@ -178,7 +170,7 @@ export default function PlanEdit() {
       >
         {copiedMarkerInfo && (
           <>
-            <strong style={{ color: COLORS.text }}>{copiedMarkerInfo.title}</strong> was added to your global I/O library as a new phase.
+            <strong style={{ color: 'var(--ui-text)' }}>{copiedMarkerInfo.title}</strong> was added to your global I/O library as a new phase.
             Other plans will inherit it automatically; the original custom marker on this plan is untouched.
           </>
         )}

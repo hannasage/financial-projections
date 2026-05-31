@@ -7,7 +7,7 @@ import { usePlans } from '../../hooks/usePlans';
 import { PlanEditor } from './PlanEditor';
 import { ColorPicker } from '../shared/ColorPicker';
 import { MarkersEditor } from './MarkersEditor';
-import { Modal } from '../shared/Modal';
+import { Modal, Input, Textarea } from '@hannasage/projection-ui';
 import { mergeIntoScenario, resolveMarkers } from '../../lib/resolveItems';
 import type { Marker, Scenario } from '../../lib/types';
 
@@ -47,15 +47,13 @@ export function PlanEditDrawer({ planId, onClose }: Props) {
   const [error,       setError]       = useState('');
   const [open,        setOpen]        = useState(false);
   const addLibraryMarker = useLibraryStore(s => s.addMarker);
-  const resolvedMarkers = resolveMarkers({ markers, excludedMarkerIds }, library.markers);
+  const resolvedMarkers  = resolveMarkers({ markers, excludedMarkerIds }, library.markers);
 
-  // Trigger slide-in animation after mount
   useEffect(() => {
     if (planId) requestAnimationFrame(() => setOpen(true));
     else setOpen(false);
   }, [planId]);
 
-  // Sync form fields when the target plan changes
   useEffect(() => {
     if (!plan) return;
     setTitle(plan.title ?? '');
@@ -68,14 +66,12 @@ export function PlanEditDrawer({ planId, onClose }: Props) {
     setError('');
   }, [plan?.id]);
 
-  // Lock body scroll while open
   useEffect(() => {
     if (!planId) return;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
   }, [planId]);
 
-  // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
     document.addEventListener('keydown', handler);
@@ -102,20 +98,17 @@ export function PlanEditDrawer({ planId, onClose }: Props) {
     }
   };
 
-  /** Toggle whether a library marker is excluded from this plan. */
   const handleToggleExcludedMarker = (libraryId: string) => {
     setExcludedMarkerIds(prev =>
       prev.includes(libraryId) ? prev.filter(x => x !== libraryId) : [...prev, libraryId],
     );
   };
 
-  /** Copy a library marker into this plan's custom list (with a new id) and exclude the library version. */
   const handleForkLibraryMarker = (m: Marker) => {
     setMarkers(prev => [...prev, { ...m, id: crypto.randomUUID() }]);
     setExcludedMarkerIds(prev => prev.includes(m.id) ? prev : [...prev, m.id]);
   };
 
-  /** Save a plan-custom marker to the global I/O library as a new entry (never edits the original). */
   const handleSaveCustomToLibrary = (m: Marker) => {
     const clone: Partial<Marker> = { ...m };
     delete clone.id;
@@ -123,23 +116,10 @@ export function PlanEditDrawer({ planId, onClose }: Props) {
     setSavedMarkerToLibrary(prev => ({ ...prev, [m.id]: libraryId }));
     setCopiedMarkerInfo({ libraryId, title: m.title || 'New phase' });
   };
+
   const savedMap: Record<string, boolean> = Object.fromEntries(
     Object.keys(savedMarkerToLibrary).map(k => [k, true]),
   );
-
-  const S = {
-    field: {
-      background: COLORS.faint, color: COLORS.text,
-      border: `1px solid ${COLORS.border}`,
-      borderRadius: 4, padding: '8px 10px',
-      fontFamily: "'IBM Plex Mono', monospace",
-      fontSize: 12, outline: 'none', width: '100%',
-    },
-    label: {
-      fontSize: 10, letterSpacing: 2, color: COLORS.muted,
-      textTransform: 'uppercase' as const, display: 'block', marginBottom: 6,
-    },
-  };
 
   const panelStyle: React.CSSProperties = isMobile
     ? {
@@ -165,7 +145,6 @@ export function PlanEditDrawer({ planId, onClose }: Props) {
 
   return (
     <>
-      {/* Backdrop — desktop only, click to close */}
       <div
         onClick={handleClose}
         aria-hidden="true"
@@ -209,27 +188,25 @@ export function PlanEditDrawer({ planId, onClose }: Props) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 4, height: 40, background: color, borderRadius: 2, flexShrink: 0 }} />
-              <div style={{ flex: 1 }}>
-                <label htmlFor="drawer-title" style={S.label}>Plan Title</label>
-                <input
-                  id="drawer-title" value={title}
-                  placeholder="e.g. Conservative plan…"
-                  onChange={e => setTitle(e.target.value)}
-                  style={S.field}
-                />
-              </div>
-            </div>
-            <div>
-              <label htmlFor="drawer-desc" style={S.label}>Description (optional)</label>
-              <textarea
-                id="drawer-desc" value={description} rows={2}
-                placeholder="Notes about this scenario…"
-                onChange={e => setDescription(e.target.value)}
-                style={{ ...S.field, resize: 'vertical', lineHeight: 1.6 }}
+              <Input
+                id="drawer-title"
+                label="Plan Title"
+                value={title}
+                placeholder="e.g. Conservative plan…"
+                onChange={e => setTitle(e.target.value)}
+                containerStyle={{ flex: 1 }}
               />
             </div>
+            <Textarea
+              id="drawer-desc"
+              label="Description (optional)"
+              value={description}
+              rows={2}
+              placeholder="Notes about this scenario…"
+              onChange={e => setDescription(e.target.value)}
+            />
             <div>
-              <span style={S.label}>Color</span>
+              <span style={{ fontSize: 10, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Color</span>
               <ColorPicker value={color} onChange={setColor} />
             </div>
             <div>
@@ -247,14 +224,19 @@ export function PlanEditDrawer({ planId, onClose }: Props) {
               />
             </div>
             {error && (
-              <div style={{ fontSize: 11, color: COLORS.red, padding: '7px 10px', background: `${COLORS.red}15`, borderRadius: 4, border: `1px solid ${COLORS.red}30` }}>
+              <div style={{
+                fontSize: 11, color: 'var(--ui-danger)',
+                padding: '7px 10px',
+                background: 'color-mix(in srgb, var(--ui-danger) 15%, transparent)',
+                borderRadius: 'var(--ui-radius-md)',
+                border: '1px solid color-mix(in srgb, var(--ui-danger) 30%, transparent)',
+              }}>
                 {error}
               </div>
             )}
           </div>
         </div>
 
-        {/* Editor */}
         {plan && (
           <PlanEditor
             initialScenario={plan.scenario}
@@ -290,7 +272,7 @@ export function PlanEditDrawer({ planId, onClose }: Props) {
       >
         {copiedMarkerInfo && (
           <>
-            <strong style={{ color: COLORS.text }}>{copiedMarkerInfo.title}</strong> was added to your global I/O library as a new phase.
+            <strong style={{ color: 'var(--ui-text)' }}>{copiedMarkerInfo.title}</strong> was added to your global I/O library as a new phase.
             Other plans will inherit it automatically; the original custom marker on this plan is untouched.
           </>
         )}

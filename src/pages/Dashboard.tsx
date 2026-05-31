@@ -16,70 +16,18 @@ import { PlanToggle } from '../components/comparison/PlanToggle';
 import { ComparisonChart } from '../components/comparison/ComparisonChart';
 import { ComparisonTable } from '../components/comparison/ComparisonTable';
 import { ThemeSelector } from '../components/shared/ThemeSelector';
+import { Button, ButtonGroup } from '@hannasage/projection-ui';
+import type { ButtonGroupOption } from '@hannasage/projection-ui';
 import type { Plan } from '../lib/types';
 
 type ComparisonMetric = 'liquidity' | 'debt' | 'investments' | 'netWorth';
 
-const METRIC_TABS: { metric: ComparisonMetric; label: string; tabId: string }[] = [
-  { metric: 'liquidity', label: 'Liquidity', tabId: 'cmp-tab-liquidity' },
-  { metric: 'debt', label: 'Debt paydown', tabId: 'cmp-tab-debt' },
-  { metric: 'investments', label: 'Investments', tabId: 'cmp-tab-investments' },
-  { metric: 'netWorth', label: 'Net worth', tabId: 'cmp-tab-networth' },
+const METRIC_OPTIONS: ButtonGroupOption<ComparisonMetric>[] = [
+  { value: 'liquidity',   label: 'Liquidity'    },
+  { value: 'debt',        label: 'Debt paydown' },
+  { value: 'investments', label: 'Investments'  },
+  { value: 'netWorth',    label: 'Net worth'    },
 ];
-
-interface ComparisonMetricPickerProps {
-  comparisonTab: ComparisonMetric;
-  setComparisonTab: (m: ComparisonMetric) => void;
-  cmpTabBtn: (active: boolean) => React.CSSProperties;
-  /** Chart: full tab semantics + ids. Table: mirrored buttons (same state, no duplicate ids). */
-  placement: 'chart' | 'table';
-}
-
-function ComparisonMetricPicker({ comparisonTab, setComparisonTab, cmpTabBtn, placement }: ComparisonMetricPickerProps) {
-  if (placement === 'chart') {
-    return (
-      <div
-        role="tablist"
-        aria-label="Comparison metric"
-        style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}
-      >
-        {METRIC_TABS.map(({ metric, label, tabId }) => (
-          <button
-            key={metric}
-            type="button"
-            role="tab"
-            id={tabId}
-            aria-selected={comparisonTab === metric}
-            aria-controls="cmp-chart-panel cmp-table-panel"
-            onClick={() => setComparisonTab(metric)}
-            style={cmpTabBtn(comparisonTab === metric)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-    );
-  }
-  return (
-    <div
-      role="group"
-      aria-label="Metric for chart and table (same as trajectory comparison above)"
-      style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}
-    >
-      {METRIC_TABS.map(({ metric, label }) => (
-        <button
-          key={metric}
-          type="button"
-          aria-pressed={comparisonTab === metric}
-          onClick={() => setComparisonTab(metric)}
-          style={cmpTabBtn(comparisonTab === metric)}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function pickRandomColor(usedColors: string[], planColors: { value: string }[]): string {
   const unused = planColors.filter(c => !usedColors.includes(c.value));
@@ -121,21 +69,21 @@ export default function Dashboard() {
   const [showPwaBanner, setShowPwaBanner] = useState(
     () => !readPwaBannerDismissed() && !isRunningAsInstalledPwa(),
   );
-
   const dismissPwaBanner = useCallback(() => {
-    try {
-      window.localStorage.setItem(PWA_BANNER_DISMISS_KEY, '1');
-    } catch { /* private mode / quota */ }
+    try { window.localStorage.setItem(PWA_BANNER_DISMISS_KEY, '1'); } catch { /* quota */ }
     setShowPwaBanner(false);
   }, []);
+
   const [comparisonTab, setComparisonTab] = useState<ComparisonMetric>('liquidity');
-  const cmpTabLabelId = comparisonTab === 'liquidity' ? 'cmp-tab-liquidity'
-    : comparisonTab === 'debt' ? 'cmp-tab-debt'
-      : comparisonTab === 'investments' ? 'cmp-tab-investments'
-        : 'cmp-tab-networth';
 
   const maxHorizon  = useMemo(() => plans.reduce((mx, p) => Math.max(mx, p.scenario.horizonYears), 0), [plans]);
   const clipOptions = useMemo(() => [1, 3, 5, 7, 10].filter(v => v < maxHorizon), [maxHorizon]);
+
+  // Clip year ButtonGroup options (year chips + "All")
+  const clipGroupOptions: ButtonGroupOption[] = useMemo(() => [
+    ...clipOptions.map(yr => ({ value: String(yr), label: `${yr}yr` })),
+    { value: 'all', label: 'All' },
+  ], [clipOptions]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -173,26 +121,10 @@ export default function Dashboard() {
     } catch (e) { console.error(e); }
   };
 
-  const chipStyle = (active: boolean): React.CSSProperties => ({
-    padding: '4px 10px', fontSize: 11, borderRadius: 4,
-    border:     `1px solid ${active ? COLORS.accent : COLORS.border}`,
-    background:  active ? `${COLORS.accent}22` : 'transparent',
-    color:       active ? COLORS.accent : COLORS.muted,
-    fontFamily: "'IBM Plex Mono', monospace",
-    cursor: 'pointer', transition: 'all 0.12s',
-  });
-
-  const cmpTabBtn = (active: boolean): React.CSSProperties => ({
-    padding: '6px 14px', fontSize: 11, borderRadius: 4,
-    border:     `1px solid ${active ? COLORS.accent : COLORS.border}`,
-    background:  active ? `${COLORS.accent}22` : 'transparent',
-    color:       active ? COLORS.accent : COLORS.muted,
-    fontFamily: "'IBM Plex Mono', monospace",
-    cursor: 'pointer', transition: 'all 0.12s',
-  });
+  const cmpTabLabelId = `cmp-tab-${comparisonTab}`;
 
   return (
-    <div style={{ background: COLORS.bg, minHeight: '100vh', color: COLORS.text, fontFamily: "'IBM Plex Mono', monospace", paddingBottom: 0 }}>
+    <div style={{ background: COLORS.bg, minHeight: '100vh', color: COLORS.text, fontFamily: 'var(--ui-font)', paddingBottom: 0 }}>
       <a href="#main" className="skip-link">Skip to main content</a>
 
       {/* Header */}
@@ -209,24 +141,16 @@ export default function Dashboard() {
             to="/plans/new"
             className="desktop-only"
             style={{
-              padding: '7px 14px', fontSize: 12, borderRadius: 4,
+              padding: '5px 12px', fontSize: 11, borderRadius: 'var(--ui-radius-md)',
               border: `1px solid ${COLORS.accent}`,
               background: COLORS.accent, color: COLORS.textOnAccent,
-              fontFamily: "'IBM Plex Mono', monospace",
+              fontFamily: 'var(--ui-font)',
               fontWeight: 600, textDecoration: 'none',
             }}
           >+ New Plan</Link>
           <ThemeSelector />
           {!LOCAL_MODE && (
-            <button
-              onClick={logout}
-              style={{
-                padding: '7px 14px', fontSize: 12, borderRadius: 4,
-                border: `1px solid ${COLORS.border}`,
-                background: 'transparent', color: COLORS.muted,
-                fontFamily: "'IBM Plex Mono', monospace", cursor: 'pointer',
-              }}
-            >Sign out</button>
+            <Button variant="secondary" size="sm" onClick={logout}>Sign out</Button>
           )}
         </div>
       </header>
@@ -238,56 +162,24 @@ export default function Dashboard() {
             role="region"
             aria-label="Install as app"
             style={{
-              marginTop: 14,
-              marginBottom: 16,
+              marginTop: 14, marginBottom: 16,
               padding: '12px 14px 12px 16px',
               borderRadius: 8,
               border: `1px solid ${COLORS.accent}`,
               background: `${COLORS.accent}14`,
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 12,
-              flexWrap: 'wrap',
+              display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap',
             }}
           >
             <div style={{ flex: '1 1 220px', minWidth: 0 }}>
-              <div
-                className="syne"
-                style={{
-                  fontSize: 13,
-                  fontWeight: 800,
-                  color: COLORS.accent,
-                  letterSpacing: 0.02,
-                  marginBottom: 6,
-                }}
-              >
+              <div className="syne" style={{ fontSize: 13, fontWeight: 800, color: COLORS.accent, marginBottom: 6 }}>
                 Install Projection
               </div>
               <p style={{ fontSize: 11, color: COLORS.text, lineHeight: 1.55, margin: 0 }}>
-                This site is a <strong style={{ color: COLORS.accent }}>PWA</strong> (progressive web app). Add it to your
-                home screen to open it full screen like a native app and keep it one tap away. On iPhone: Share →{' '}
-                <em>Add to Home Screen</em>. On Android: browser menu → <em>Install app</em> or <em>Add to Home screen</em>.
+                This site is a <strong style={{ color: COLORS.accent }}>PWA</strong>. Add it to your home screen to open it full screen.
+                On iPhone: Share → <em>Add to Home Screen</em>. On Android: browser menu → <em>Install app</em>.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={dismissPwaBanner}
-              aria-label="Dismiss install banner"
-              style={{
-                flexShrink: 0,
-                padding: '6px 12px',
-                fontSize: 11,
-                borderRadius: 4,
-                border: `1px solid ${COLORS.accent}`,
-                background: COLORS.accent,
-                color: COLORS.textOnAccent,
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Got it
-            </button>
+            <Button variant="primary" size="sm" onClick={dismissPwaBanner} style={{ flexShrink: 0 }}>Got it</Button>
           </div>
         )}
 
@@ -302,10 +194,10 @@ export default function Dashboard() {
             <Link
               to="/plans/new"
               style={{
-                display: 'inline-block', padding: '10px 24px', fontSize: 13, borderRadius: 4,
+                display: 'inline-block', padding: '10px 24px', fontSize: 13, borderRadius: 'var(--ui-radius-md)',
                 border: `1px solid ${COLORS.accent}`,
                 background: COLORS.accent, color: COLORS.textOnAccent,
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: 'var(--ui-font)',
                 fontWeight: 600, textDecoration: 'none',
               }}
             >Create first scenario</Link>
@@ -324,24 +216,21 @@ export default function Dashboard() {
                 <h2 style={{ fontSize: 11, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase', margin: 0 }}>
                   Trajectory Comparison
                 </h2>
-                {clipOptions.length > 0 && (
-                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                    {clipOptions.map(yr => (
-                      <button key={yr} onClick={() => setClipYears(clipYears === yr ? null : yr)} style={chipStyle(clipYears === yr)} aria-pressed={clipYears === yr}>
-                        {yr}yr
-                      </button>
-                    ))}
-                    <button onClick={() => setClipYears(null)} style={chipStyle(clipYears === null)} aria-pressed={clipYears === null}>
-                      All
-                    </button>
-                  </div>
+                {clipGroupOptions.length > 1 && (
+                  <ButtonGroup
+                    options={clipGroupOptions}
+                    value={clipYears === null ? 'all' : String(clipYears)}
+                    onChange={v => setClipYears(v === 'all' ? null : Number(v))}
+                    size="sm"
+                  />
                 )}
               </div>
-              <ComparisonMetricPicker
-                placement="chart"
-                comparisonTab={comparisonTab}
-                setComparisonTab={setComparisonTab}
-                cmpTabBtn={cmpTabBtn}
+              <ButtonGroup
+                options={METRIC_OPTIONS}
+                value={comparisonTab}
+                onChange={v => setComparisonTab(v as ComparisonMetric)}
+                size="sm"
+                style={{ marginBottom: 10 }}
               />
               <p style={{ fontSize: 10, color: COLORS.dim, marginBottom: 10, lineHeight: 1.55 }}>
                 Curves and tables are month-step nominal projections—reasonable ranges for planning, not precise forecasts or tax advice.
@@ -353,14 +242,14 @@ export default function Dashboard() {
                     ? 'Debt and loan balances owed over time (matches year table balances).'
                     : comparisonTab === 'investments'
                       ? 'Invested balances (compounding + contributions). Compare plans as totals; select one scenario to stack accounts like the plan editor.'
-                      : 'Net worth: savings plus market value on purchases (when set) minus all debts and loan balances. Purchases without market value count as debt only.'}
+                      : 'Net worth: savings plus market value on purchases (when set) minus all debts and loan balances.'}
               </p>
               <div id="cmp-chart-panel" role="tabpanel" aria-labelledby={cmpTabLabelId}>
                 <ComparisonChart plans={plans} activePlanIds={activePlanIds} clipYears={clipYears} tab={comparisonTab} />
               </div>
             </section>
 
-            {/* Plans grid — drag to reorder, edit opens drawer */}
+            {/* Plans grid */}
             <section aria-label="Saved scenarios" className="sec">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <h2 style={{ fontSize: 11, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase', margin: 0 }}>
@@ -369,10 +258,10 @@ export default function Dashboard() {
                 <Link
                   to="/plans/new"
                   style={{
-                    padding: '6px 13px', fontSize: 11, borderRadius: 4,
+                    padding: '6px 13px', fontSize: 11, borderRadius: 'var(--ui-radius-md)',
                     border: `1px solid ${COLORS.accent}`,
                     background: COLORS.accent, color: COLORS.textOnAccent,
-                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontFamily: 'var(--ui-font)',
                     fontWeight: 600, textDecoration: 'none',
                   }}
                 >+ New</Link>
@@ -400,20 +289,21 @@ export default function Dashboard() {
               <h2 style={{ fontSize: 11, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase', marginBottom: 8 }}>
                 Year-by-Year
               </h2>
-              <ComparisonMetricPicker
-                placement="table"
-                comparisonTab={comparisonTab}
-                setComparisonTab={setComparisonTab}
-                cmpTabBtn={cmpTabBtn}
+              <ButtonGroup
+                options={METRIC_OPTIONS}
+                value={comparisonTab}
+                onChange={v => setComparisonTab(v as ComparisonMetric)}
+                size="sm"
+                style={{ marginBottom: 10 }}
               />
               <p style={{ fontSize: 10, color: COLORS.muted, marginBottom: 12, lineHeight: 1.5 }}>
                 {comparisonTab === 'liquidity'
-                  ? 'Per plan: cash savings balance and net monthly change to cash (/mo), including one-time investment funding and yield.'
+                  ? 'Per plan: cash savings balance and net monthly change to cash (/mo).'
                   : comparisonTab === 'debt'
                     ? 'Per plan: debt + loan balances owed and combined payments (/mo svc).'
                     : comparisonTab === 'investments'
                       ? 'Per plan: total invested balance at year-end and combined monthly contributions (/mo in).'
-                      : 'Per plan: net worth at year-end checkpoint and that month’s change (/mo Δ).'}
+                      : "Per plan: net worth at year-end checkpoint and that month's change (/mo Δ)."}
               </p>
               <div id="cmp-table-panel" role="tabpanel" aria-labelledby={cmpTabLabelId}>
                 <ComparisonTable plans={plans} activePlanIds={activePlanIds} clipYears={clipYears} tab={comparisonTab} />
@@ -434,7 +324,6 @@ export default function Dashboard() {
         <Link to="/plans/new" style={{ flex: 1, textAlign: 'center', fontSize: 11, color: COLORS.muted,  textDecoration: 'none', letterSpacing: 1, padding: '4px 0' }}>+ NEW</Link>
       </nav>
 
-      {/* Edit drawer */}
       <PlanEditDrawer planId={editingPlanId} onClose={() => setEditingPlanId(null)} />
     </div>
   );
