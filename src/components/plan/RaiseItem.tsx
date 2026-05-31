@@ -21,6 +21,7 @@ export function RaiseItem({ r, taxPct, baseSalary, startYear = START_YEAR, onCha
     fontSize: 18, cursor: 'pointer', lineHeight: 1,
     padding: '4px 6px', minWidth: 32, minHeight: 32,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
   };
 
   const boost    = netMonthly(r.salary, taxPct) - netMonthly(baseSalary, taxPct);
@@ -30,34 +31,38 @@ export function RaiseItem({ r, taxPct, baseSalary, startYear = START_YEAR, onCha
 
   return (
     <div style={{ padding: '10px 0', borderBottom: `1px solid ${COLORS.border}20` }}>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+      {/* Date + salary in a responsive grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
         <Select
+          label="Month"
           options={monthOpts}
           value={String(r.monthIdx)}
           aria-label="Raise effective month"
           onChange={e => onChange({ monthIdx: +e.target.value })}
-          containerStyle={{ flex: '1 1 70px' }}
         />
         <Select
+          label="Year"
           options={yearOpts}
           value={String(r.year)}
           aria-label="Raise effective year"
           onChange={e => onChange({ year: +e.target.value })}
-          containerStyle={{ flex: '1 1 70px' }}
         />
         <Input
+          label="New salary"
           type="number"
           value={r.salary}
           step={5000}
           min={0}
           prefix="$"
-          suffix="/yr"
           aria-label="New annual salary"
           onChange={e => onChange({ salary: +e.target.value })}
-          containerStyle={{ flex: '1 1 120px' }}
         />
-        <span style={{ fontSize: 11, color: boost >= 0 ? COLORS.accent : COLORS.red, whiteSpace: 'nowrap' }}>
-          {boost >= 0 ? '+' : ''}{money(boost)}/mo net
+      </div>
+
+      {/* Net monthly boost + remove */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 12, color: boost >= 0 ? COLORS.accent : COLORS.red }}>
+          {boost >= 0 ? '+' : ''}{money(boost)}/mo net after tax
         </span>
         <button onClick={onRemove} aria-label="Remove this raise" style={iconBtn}>×</button>
       </div>

@@ -418,12 +418,15 @@ export default function IO() {
             <ButtonGroup
               options={returnModeOptions}
               value={p.returnMode}
+              variant="segmented"
+              block
               onChange={v => sp({ returnMode: v as 'none' | 'hysa' | 'invested' })}
               size="sm"
             />
             {p.returnMode === 'hysa' && (
               <div style={{ marginTop: 8 }}>
                 <Slider
+                  aria-label="HYSA savings rate"
                   min={0} max={10} step={0.1}
                   value={p.hysaRate ?? 4.5}
                   onChange={v => sp({ hysaRate: v })}

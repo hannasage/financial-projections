@@ -104,24 +104,25 @@ export function PurchaseItem({
       background: COLORS.surface, borderRadius: 6,
       border: `1px solid ${typeColor}40`, padding: '14px', marginTop: 10,
     }}>
-      {/* Row 1: type toggle · label · remove */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 10 }}>
+      {/* Row 1: type toggle · × */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <ButtonGroup
           options={typeGroupOptions}
           value={p.type}
           onChange={v => onChange({ type: v as 'loan' | 'house' })}
           size="md"
-          style={{ flexShrink: 0 }}
         />
-        <Input
-          value={p.label}
-          placeholder={isHouse ? 'e.g. First home, Condo…' : 'e.g. Corvette C8, Boat…'}
-          aria-label="Purchase label"
-          onChange={e => onChange({ label: e.target.value })}
-          containerStyle={{ flex: 1, minWidth: 80 }}
-        />
-        <button onClick={onRemove} aria-label={`Remove: ${p.label || 'purchase'}`} style={{ ...iconBtn, marginBottom: 4 }}>×</button>
+        <button onClick={onRemove} aria-label={`Remove: ${p.label || 'purchase'}`} style={iconBtn}>×</button>
       </div>
+
+      {/* Row 2: label full width */}
+      <Input
+        value={p.label}
+        placeholder={isHouse ? 'e.g. First home, Condo…' : 'e.g. Corvette C8, Boat…'}
+        aria-label="Purchase label"
+        onChange={e => onChange({ label: e.target.value })}
+        containerStyle={{ marginBottom: 10 }}
+      />
 
       {/* Row 2: purchase date */}
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>

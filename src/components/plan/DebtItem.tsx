@@ -19,6 +19,7 @@ export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Prop
     fontSize: 18, cursor: 'pointer', lineHeight: 1,
     padding: '4px 6px', minWidth: 32, minHeight: 32,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
   };
 
   const balance = d.balance ?? 0;
@@ -50,29 +51,29 @@ export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Prop
   return (
     <div style={{ padding: '12px 0', borderBottom: `1px solid ${COLORS.border}20` }}>
 
-      {/* Row 1: label · payment · remove */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 8 }}>
+      {/* Row 1: label fills width, × at right */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 10 }}>
         <Input
           value={d.label}
           placeholder="Label (e.g. Visa, student loan…)"
           aria-label="Debt label"
           onChange={e => onChange({ label: e.target.value })}
-          containerStyle={{ flex: 1, minWidth: 0 }}
+          containerStyle={{ flex: 1 }}
         />
-        <Input
-          type="number"
-          value={d.payment}
-          min={0}
-          max={99999}
-          step={25}
-          prefix="−$"
-          suffix="/mo"
-          aria-label={`Monthly payment for ${d.label || 'this debt'}`}
-          onChange={e => onChange(withPayoff(balance, apr, +e.target.value, { payment: +e.target.value }))}
-          containerStyle={{ width: 130, flexShrink: 0 }}
-        />
-        <button onClick={onRemove} aria-label={`Remove debt: ${d.label || 'unnamed'}`} style={{ ...iconBtn, marginBottom: 4 }}>×</button>
+        <button onClick={onRemove} aria-label={`Remove debt: ${d.label || 'unnamed'}`} style={iconBtn}>×</button>
       </div>
+
+      {/* Row 2: payment full width */}
+      <Input
+        type="number"
+        value={d.payment}
+        min={0} max={99999} step={25}
+        prefix="−$" suffix="/mo"
+        label="Monthly payment"
+        aria-label={`Monthly payment for ${d.label || 'this debt'}`}
+        onChange={e => onChange(withPayoff(balance, apr, +e.target.value, { payment: +e.target.value }))}
+        containerStyle={{ marginBottom: 10 }}
+      />
 
       {/* Payment schedule adjustments */}
       {(() => {
@@ -87,7 +88,7 @@ export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Prop
           onChange({ adjustments: adjs.filter(a => a.id !== id) });
 
         return (
-          <div style={{ marginBottom: 8 }}>
+          <div style={{ marginBottom: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: adjs.length ? 8 : 0 }}>
               <span style={{ fontSize: 9, letterSpacing: 1.5, color: COLORS.muted, textTransform: 'uppercase' }}>Payment schedule</span>
               <Button variant="primary" size="sm" onClick={addAdj}>+ Change</Button>
@@ -109,7 +110,7 @@ export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Prop
                       aria-label={`Remove payment change ${i + 1}`}
                       style={iconBtn}>×</button>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(70px, 1fr))', gap: 7 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: 8 }}>
                     <Select label="Month" options={monthOpts} value={String(adj.monthIdx)}
                       aria-label={`Change ${i + 1} month`}
                       onChange={e => changeAdj(adj.id, { monthIdx: +e.target.value })} />
@@ -129,7 +130,7 @@ export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Prop
       })()}
 
       {/* Balance · APR */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
         <Input
           id={`bal-${d.id}`}
           label="Balance (optional)"
@@ -150,7 +151,7 @@ export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Prop
 
       {/* Stats bar */}
       {hasStats && (
-        <div style={{ borderRadius: 4, overflow: 'hidden', border: `1px solid ${COLORS.border}`, marginBottom: 8 }}>
+        <div style={{ borderRadius: 4, overflow: 'hidden', border: `1px solid ${COLORS.border}`, marginBottom: 10 }}>
           {paymentTooLow ? (
             <div style={{ padding: '8px 12px', background: `${COLORS.red}0F`, fontSize: 11, color: COLORS.red }}>
               Payment ${d.payment}/mo doesn't cover monthly interest ({money(moInterest)}) — balance will grow.
