@@ -18,7 +18,9 @@ export function RaiseItem({ r, taxPct, baseSalary, startYear = START_YEAR, onCha
 
   const iconBtn: React.CSSProperties = {
     background: 'none', border: 'none', color: COLORS.muted,
-    fontSize: 18, cursor: 'pointer', padding: '0 4px', lineHeight: 1,
+    fontSize: 18, cursor: 'pointer', lineHeight: 1,
+    padding: '4px 6px', minWidth: 32, minHeight: 32,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
   };
 
   const boost    = netMonthly(r.salary, taxPct) - netMonthly(baseSalary, taxPct);

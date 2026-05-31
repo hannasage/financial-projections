@@ -70,6 +70,7 @@ function BillModificationSection({
       </div>
       <Input
         id={fieldId}
+        aria-label={label}
         type="number"
         value={value}
         min={0}
@@ -284,6 +285,7 @@ export default function IO() {
             />
             <Input
               id="io-envelope"
+              aria-label="Monthly Budget Surplus"
               type="number" min={0} step={50}
               value={p.envelope}
               prefix="$" suffix="/mo"
@@ -306,6 +308,7 @@ export default function IO() {
             />
             <Input
               id="io-savings"
+              aria-label="Cash on Hand Today"
               type="number" min={0} step={500}
               value={p.startSavings}
               prefix="$"

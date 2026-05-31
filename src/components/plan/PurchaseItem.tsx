@@ -23,7 +23,9 @@ export function PurchaseItem({
 
   const iconBtn: React.CSSProperties = {
     background: 'none', border: 'none', color: COLORS.muted,
-    fontSize: 18, cursor: 'pointer', padding: '0 4px', lineHeight: 1,
+    fontSize: 18, cursor: 'pointer', lineHeight: 1,
+    padding: '4px 6px', minWidth: 32, minHeight: 32,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
   };
 
   const isHouse       = p.type === 'house';
@@ -116,7 +118,7 @@ export function PurchaseItem({
           placeholder={isHouse ? 'e.g. First home, Condo…' : 'e.g. Corvette C8, Boat…'}
           aria-label="Purchase label"
           onChange={e => onChange({ label: e.target.value })}
-          containerStyle={{ flex: 1, minWidth: 0 }}
+          containerStyle={{ flex: 1, minWidth: 80 }}
         />
         <button onClick={onRemove} aria-label={`Remove: ${p.label || 'purchase'}`} style={{ ...iconBtn, marginBottom: 4 }}>×</button>
       </div>

@@ -91,7 +91,7 @@ export function ComparisonTable({ plans, activePlanIds, clipYears, tab }: Props)
 
   return (
     <div>
-      <div className="tbl">
+      <div className="tbl" tabIndex={0}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 400 }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
