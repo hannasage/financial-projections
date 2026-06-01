@@ -83,7 +83,7 @@ export function InvestmentItem({ i, onChange, onRemove, planStartYear, planStart
       </div>
 
       {/* Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8, marginBottom: 10 }}>
+      <div className="igr3" style={{ gap: 8, marginBottom: 10 }}>
         <div style={cardStyle}>
           <label htmlFor={`ia-${i.id}`} style={{ fontSize: 10, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase' }}>Balance</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -159,7 +159,7 @@ export function InvestmentItem({ i, onChange, onRemove, planStartYear, planStart
           )}
         </div>
         {hasSale && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 8 }}>
+          <div className="igr2" style={{ gap: 8 }}>
             <Input id={`isp-${i.id}`} label="Sale price ($)" type="number" min={0} step={500}
               placeholder="Modeled balance" value={i.salePrice ?? ''}
               onChange={e => {
@@ -252,7 +252,7 @@ export function InvestmentItem({ i, onChange, onRemove, planStartYear, planStart
                   </span>
                   <button type="button" onClick={() => removeAdjustment(adj.id)} style={iconBtn}>×</button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                <div className="igr2" style={{ gap: 10 }}>
                   {/* Date */}
                   <div style={cellStyle}>
                     <span style={{ fontSize: 10, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase' }}>Date</span>

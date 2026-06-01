@@ -146,7 +146,7 @@ export function PurchaseItem({
       </div>
 
       {/* Row 3: down · loan · rate */}
-      <div style={{ display: 'grid', gridTemplateColumns: isHistorical ? '1fr 1fr' : '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
+      <div className={isHistorical ? 'igr2' : 'igr3'} style={{ gap: 8, marginBottom: 10 }}>
         {[
           !isHistorical && { id: `dp-${p.id}`,  labelText: 'Down Payment', prefix: '$', value: p.downPayment, step: 1000, onCh: (v: number) => onChange({ downPayment: v }) },
           { id: `la-${p.id}`,  labelText: isHistorical ? 'Original Amount' : 'Loan Amount', prefix: '$', value: p.loanAmount, step: 1000, onCh: applyLoanAmount },
@@ -266,7 +266,7 @@ export function PurchaseItem({
                       aria-label={`Remove payment modification ${i + 1}`}
                       style={iconBtn}>×</button>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(70px, 1fr))', gap: 7 }}>
+                  <div className="igr3" style={{ gap: 7 }}>
                     <Select label="Month" options={monthOpts} value={String(adj.monthIdx)}
                       aria-label={`Modification ${i + 1} month`}
                       onChange={e => changeAdj(adj.id, { monthIdx: +e.target.value })} />

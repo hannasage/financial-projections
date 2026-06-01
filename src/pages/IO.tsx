@@ -97,7 +97,7 @@ function BillModificationSection({
                   <span style={{ fontSize: 9, letterSpacing: 1.5, color: COLORS.muted, textTransform: 'uppercase' }}>Mod {i + 1}</span>
                   <button type="button" onClick={() => removeAdj(adj.id)} style={iconBtn}>×</button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                <div className="igr3" style={{ gap: 8 }}>
                   <Select label="Month" options={monthOpts} value={String(adj.monthIdx)}
                     aria-label={`Modification ${i + 1} month`}
                     onChange={e => changeAdj(adj.id, { monthIdx: +e.target.value })} />
@@ -351,7 +351,7 @@ export default function IO() {
               At retirement age, your working income envelope is <strong style={{ color: COLORS.text }}>replaced</strong> by a retirement income envelope.
             </p>
             {hasRetirement && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginTop: 10 }}>
+              <div className="igra" style={{ gap: 10, marginTop: 10 }}>
                 <Input
                   id="io-ret-age"
                   label="Retirement age"
@@ -371,7 +371,7 @@ export default function IO() {
           </div>
 
           {/* Numeric grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginTop: 14 }}>
+          <div className="igra" style={{ gap: 10, marginTop: 14 }}>
             <Select
               id="io-start-month"
               label="Projection Start"

@@ -36,27 +36,27 @@ export function RecurringChargeItem({ c, onChange, onRemove, startYear = START_Y
 
   return (
     <Card style={{ marginTop: 8 }}>
-      {/* Row 1: label · amount · remove */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, flexWrap: 'wrap', marginBottom: adjustments.length > 0 ? 10 : 0 }}>
-        <Input
-          id={`rc-l-${c.id}`}
-          label="Label"
-          value={c.label}
-          placeholder="e.g. Gym, Netflix…"
-          onChange={e => onChange({ label: e.target.value })}
-          containerStyle={{ flex: '1 1 160px' }}
-        />
-        <Input
-          id={`rc-a-${c.id}`}
-          label="Amount / mo"
-          type="number" min={0} step={5}
-          value={c.amount}
-          prefix="$"
-          onChange={e => onChange({ amount: Math.max(0, +e.target.value) })}
-          containerStyle={{ flex: '0 1 120px' }}
-        />
+      {/* Row 1: label · amount with remove button to the right */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: adjustments.length > 0 ? 10 : 0 }}>
+        <div className="igr2" style={{ gap: 8, flex: 1 }}>
+          <Input
+            id={`rc-l-${c.id}`}
+            label="Label"
+            value={c.label}
+            placeholder="e.g. Gym, Netflix…"
+            onChange={e => onChange({ label: e.target.value })}
+          />
+          <Input
+            id={`rc-a-${c.id}`}
+            label="Amount / mo"
+            type="number" min={0} step={5}
+            value={c.amount}
+            prefix="$"
+            onChange={e => onChange({ amount: Math.max(0, +e.target.value) })}
+          />
+        </div>
         <button type="button" onClick={onRemove} aria-label={`Remove ${c.label || 'charge'}`}
-          style={{ ...iconBtn, marginBottom: 6 }}>×</button>
+          style={{ ...iconBtn, marginTop: 22 }}>×</button>
       </div>
 
       {/* Modifications */}
@@ -78,7 +78,7 @@ export function RecurringChargeItem({ c, onChange, onRemove, startYear = START_Y
                     aria-label={`Remove modification ${i + 1}`}
                     style={iconBtn}>×</button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(70px, 1fr))', gap: 7 }}>
+                <div className="igr3" style={{ gap: 7 }}>
                   <Select label="Month" options={monthOpts} value={String(adj.monthIdx)}
                     aria-label={`Modification ${i + 1} month`}
                     onChange={e => changeAdj(adj.id, { monthIdx: +e.target.value })} />

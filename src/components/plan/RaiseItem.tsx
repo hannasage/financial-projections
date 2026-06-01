@@ -32,7 +32,7 @@ export function RaiseItem({ r, taxPct, baseSalary, startYear = START_YEAR, onCha
   return (
     <div style={{ padding: '10px 0', borderBottom: `1px solid ${COLORS.border}20` }}>
       {/* Date + salary in a responsive grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+      <div className="igr3" style={{ gap: 8, marginBottom: 8 }}>
         <Select
           label="Month"
           options={monthOpts}

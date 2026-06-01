@@ -110,7 +110,7 @@ export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Prop
                       aria-label={`Remove payment change ${i + 1}`}
                       style={iconBtn}>×</button>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: 8 }}>
+                  <div className="igr3" style={{ gap: 8 }}>
                     <Select label="Month" options={monthOpts} value={String(adj.monthIdx)}
                       aria-label={`Change ${i + 1} month`}
                       onChange={e => changeAdj(adj.id, { monthIdx: +e.target.value })} />
@@ -130,7 +130,7 @@ export function DebtItem({ d, startYear = START_YEAR, onChange, onRemove }: Prop
       })()}
 
       {/* Balance · APR */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+      <div className="igr2" style={{ gap: 10, marginBottom: 10 }}>
         <Input
           id={`bal-${d.id}`}
           label="Balance (optional)"

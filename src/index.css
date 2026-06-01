@@ -113,6 +113,21 @@ button:focus-visible {
   .mg  { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
+/* ── Responsive input grids: stack to 1 col on mobile ──────────── */
+/* Use igr2/igr3/igra as className; omit gridTemplateColumns from inline styles */
+.igr2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.igr3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.igra {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
 @media (max-width: 639px) {
   /* Hide desktop nav elements */
   .desktop-only {
@@ -141,5 +156,12 @@ button:focus-visible {
   textarea,
   select {
     font-size: 16px !important;
+  }
+
+  /* Stack all input grids to single column */
+  .igr2,
+  .igr3,
+  .igra {
+    grid-template-columns: 1fr;
   }
 }
